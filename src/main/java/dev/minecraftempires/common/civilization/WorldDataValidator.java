@@ -8,6 +8,7 @@ import dev.minecraftempires.common.building.WorldSyncState;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -37,10 +38,10 @@ public final class WorldDataValidator {
                     + data.schemaVersion() + "; supported version is " + EmpiresWorldData.CURRENT_SCHEMA_VERSION + "."));
         }
 
-        final Map<UUID, FactionRecord> factions = new HashMap<>();
-        final Map<UUID, SettlementRecord> settlements = new HashMap<>();
-        final Map<UUID, CitizenRecord> citizens = new HashMap<>();
-        final Map<UUID, BuildingRecord> buildings = new HashMap<>();
+        final Map<UUID, FactionRecord> factions = new LinkedHashMap<>();
+        final Map<UUID, SettlementRecord> settlements = new LinkedHashMap<>();
+        final Map<UUID, CitizenRecord> citizens = new LinkedHashMap<>();
+        final Map<UUID, BuildingRecord> buildings = new LinkedHashMap<>();
         for (FactionRecord faction : data.factions()) {
             factions.put(faction.id(), faction);
         }
