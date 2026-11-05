@@ -396,8 +396,8 @@ public final class EmpiresCommands {
         }
         if (report.issues().size() > limit) {
             source.sendSuccess(() -> Component.literal(
-                    "... and " + (report.issues().size() - limit)
-                            + " more issue(s). See server log only after a future verbose-report option is added."
+                    "Report truncated: " + (report.issues().size() - limit)
+                            + " additional issue(s) omitted. Resolve the listed issues and run validation again."
             ), false);
         }
         return report.passed() ? 1 : 0;
