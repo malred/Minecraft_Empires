@@ -64,6 +64,33 @@ public final class M0IntegrationGameTests {
             batch = "empires.m0_012",
             timeoutTicks = 20
     )
+    public static void pendingPlacementCursorSurvivesSavedDataRoundTrip(final GameTestHelper helper) {
+        final Fixture fixture = createFixture(1, 1, false);
+        final BuildingRecord original = fixture.data().buildings().get(0);
+        final BuildingRecord pending = original.withPlacementCursor(8, WorldSyncState.PENDING);
+        fixture.data().putBuilding(pending);
+
+        final EmpiresWorldData loaded = EmpiresWorldData.load(fixture.data().save(new CompoundTag()));
+        final BuildingRecord restored = loaded.findBuilding(original.id()).orElseThrow();
+        final WorldDataValidator.Report report = WorldDataValidator.validate(loaded);
+
+        helper.assertTrue(restored.placementCursor() == 8,
+                "Pending placement cursor was not preserved through SavedData serialization");
+        helper.assertTrue(restored.worldSyncState() == WorldSyncState.PENDING,
+                "Pending world sync state was not preserved through SavedData serialization");
+        helper.assertTrue(restored.state() == original.state(),
+                "Logical building lifecycle state changed during placement persistence");
+        helper.assertTrue(report.passed() && report.warningCount() == 0,
+                "Pending placement data failed consistency validation");
+        helper.succeed();
+    }
+
+    @GameTest(
+            template = "gametest_empty_5x5x5",
+            templateNamespace = "empires",
+            batch = "empires.m0_012",
+            timeoutTicks = 20
+    )
     public static void validatorReportsPopulationCacheMismatch(final GameTestHelper helper) {
         final Fixture fixture = createFixture(0, 0, false);
         final WorldDataValidator.Report report = WorldDataValidator.validate(fixture.data());
