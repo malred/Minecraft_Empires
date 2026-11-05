@@ -32,8 +32,8 @@ public final class M0IntegrationGameTests {
     }
 
     @GameTest(
-            template = "empty",
-            templateNamespace = "minecraft",
+            template = "gametest_empty_5x5x5",
+            templateNamespace = "empires",
             batch = "empires.m0_012",
             timeoutTicks = 20
     )
@@ -59,8 +59,8 @@ public final class M0IntegrationGameTests {
     }
 
     @GameTest(
-            template = "empty",
-            templateNamespace = "minecraft",
+            template = "gametest_empty_5x5x5",
+            templateNamespace = "empires",
             batch = "empires.m0_012",
             timeoutTicks = 20
     )
@@ -76,8 +76,8 @@ public final class M0IntegrationGameTests {
     }
 
     @GameTest(
-            template = "empty",
-            templateNamespace = "minecraft",
+            template = "gametest_empty_5x5x5",
+            templateNamespace = "empires",
             batch = "empires.m0_012",
             timeoutTicks = 20
     )
@@ -92,8 +92,8 @@ public final class M0IntegrationGameTests {
     }
 
     @GameTest(
-            template = "empty",
-            templateNamespace = "minecraft",
+            template = "gametest_empty_5x5x5",
+            templateNamespace = "empires",
             batch = "empires.m0_012",
             timeoutTicks = 20
     )
@@ -119,8 +119,8 @@ public final class M0IntegrationGameTests {
     }
 
     @GameTest(
-            template = "empty",
-            templateNamespace = "minecraft",
+            template = "gametest_empty_5x5x5",
+            templateNamespace = "empires",
             batch = "empires.m0_012",
             timeoutTicks = 20
     )
@@ -140,14 +140,14 @@ public final class M0IntegrationGameTests {
     }
 
     @GameTest(
-            template = "empty",
-            templateNamespace = "minecraft",
+            template = "gametest_empty_5x5x5",
+            templateNamespace = "empires",
             batch = "empires.m0_012",
             timeoutTicks = 40
     )
     public static void placementAdapterPlacesTemplateAndRejectsReplay(final GameTestHelper helper) {
         final var level = helper.getLevel();
-        final BlockPos origin = helper.absolutePos(new BlockPos(2, 2, 2));
+        final BlockPos origin = helper.absolutePos(new BlockPos(1, 1, 1));
         for (int x = 0; x < 3; x++) {
             for (int z = 0; z < 3; z++) {
                 level.setBlock(origin.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 3);
@@ -199,8 +199,8 @@ public final class M0IntegrationGameTests {
     }
 
     @GameTest(
-            template = "empty",
-            templateNamespace = "minecraft",
+            template = "gametest_empty_5x5x5",
+            templateNamespace = "empires",
             batch = "empires.m0_012",
             timeoutTicks = 20
     )
