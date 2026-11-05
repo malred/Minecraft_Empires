@@ -154,7 +154,9 @@ public final class M0IntegrationGameTests {
             }
         }
 
-        final CivilizationService service = CivilizationService.forLevel(level);
+        final EmpiresWorldData testData = new EmpiresWorldData();
+        final CivilizationService service = new CivilizationService(
+                new SavedDataCivilizationRepository(testData));
         final FactionRecord faction = service.createFaction(
                 "M0 Placement Test", TEST_SPECIES, ControllerType.AI, level.getGameTime());
         final SettlementRecord settlement = service.createSettlement(
@@ -163,14 +165,14 @@ public final class M0IntegrationGameTests {
                 settlement.id(), BlueprintCatalog.WAREHOUSE_PROTOTYPE_ID,
                 level.dimension().location(), origin, 0, level.getGameTime());
 
-        BuildingPlacementService.beginPlacement(level, planned.id());
+        BuildingPlacementService.beginPlacement(level, service, planned.id());
         BuildingRecord current = service.findBuilding(planned.id()).orElseThrow();
         helper.assertTrue(current.worldSyncState() == WorldSyncState.PENDING,
                 "Placement should enter PENDING before any block is written");
 
         int processCalls = 0;
         while (current.placementCursor() < 25 && processCalls < 32) {
-            BuildingPlacementService.processPending(level.getServer());
+            BuildingPlacementService.processPending(level.getServer(), testData, service);
             current = service.findBuilding(planned.id()).orElseThrow();
             processCalls++;
         }
