@@ -48,7 +48,7 @@ flowchart TD
 | M0-008 | SimulationScheduler | 003 | 纯数据调度 | 未加载区域数据变化 |
 | M0-009 | Blueprint/BuildingRecord | 003 | 蓝图逻辑 | 记录保存恢复 |
 | M0-010 | Block placement adapter | 009 | 小模板放置 | 只修改已加载 chunk |
-| M0-011 | Debug commands + world consistency validation | 003-010 | OP 调试命令、只读世界数据校验 | 代码已提交；本地 build/runtime 验证待执行 |
+| M0-011 | Debug commands + world consistency validation | 003-010 | OP 调试命令、只读世界数据校验 | PASS：用户本地 build 成功；原存档 validate=PASS，0 errors/0 warnings |
 | M0-012 | M0 integration test | 001-011 | 自动化/集成验收报告 | 完整 M0 checklist 全通过（尚未开始） |
 
 ## 4. M1 任务分解
