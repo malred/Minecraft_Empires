@@ -27,3 +27,13 @@
 - Forge client command test: NOT RUN by the patch author.
 - Dedicated Server test: NOT RUN by the patch author.
 - Automated damaged-save fixture tests: NOT RUN; repository currently has no `src/test` tree.
+
+
+## User verification update — 2026-11-06
+
+- Local `gradlew.bat build`: PASS, Java 17.0.12, BUILD SUCCESSFUL in 25s.
+- Existing-world `/empires debug status`: schema=3, original worldId retained, 1 faction, 2 settlements, 3 citizens, readOnly=false.
+- Existing-world `/empires debug validate`: PASS, 1 faction, 2 settlements, 3 citizens, 2 buildings, 0 errors, 0 warnings.
+- Forge client launch and in-game command registration: PASS.
+- Dedicated Server and malformed-save fixture tests: NOT RUN.
+- Three deprecation/removal warnings remain in the pre-existing `seed-resources` command's ResourceLocation constructor calls; they did not fail compilation.
