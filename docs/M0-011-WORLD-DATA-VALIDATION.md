@@ -62,13 +62,13 @@
 2. 在工程根目录运行：
 
    ```powershell
-   .\\gradlew.bat build
+   .\gradlew.bat build
    ```
 
 3. 构建成功后运行：
 
    ```powershell
-   .\\gradlew.bat runClient
+   .\gradlew.bat runClient
    ```
 
 4. 进入既有世界（不要重建世界），执行：
