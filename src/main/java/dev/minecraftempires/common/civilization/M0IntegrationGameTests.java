@@ -219,7 +219,7 @@ public final class M0IntegrationGameTests {
 
         boolean replayRejected = false;
         try {
-            BuildingPlacementService.beginPlacement(level, planned.id());
+            BuildingPlacementService.beginPlacement(level, service, planned.id());
         } catch (IllegalStateException expected) {
             replayRejected = true;
         }
