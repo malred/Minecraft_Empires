@@ -1,0 +1,216 @@
+{
+  "schema_version": 1,
+  "id": "empires:structures/warehouse_prototype",
+  "size": [
+    3,
+    3,
+    3
+  ],
+  "palette": [
+    "minecraft:cobblestone",
+    "minecraft:oak_planks"
+  ],
+  "blocks": [
+    {
+      "pos": [
+        0,
+        0,
+        0
+      ],
+      "palette": 0
+    },
+    {
+      "pos": [
+        1,
+        0,
+        0
+      ],
+      "palette": 0
+    },
+    {
+      "pos": [
+        2,
+        0,
+        0
+      ],
+      "palette": 0
+    },
+    {
+      "pos": [
+        0,
+        0,
+        1
+      ],
+      "palette": 0
+    },
+    {
+      "pos": [
+        1,
+        0,
+        1
+      ],
+      "palette": 0
+    },
+    {
+      "pos": [
+        2,
+        0,
+        1
+      ],
+      "palette": 0
+    },
+    {
+      "pos": [
+        0,
+        0,
+        2
+      ],
+      "palette": 0
+    },
+    {
+      "pos": [
+        1,
+        0,
+        2
+      ],
+      "palette": 0
+    },
+    {
+      "pos": [
+        2,
+        0,
+        2
+      ],
+      "palette": 0
+    },
+    {
+      "pos": [
+        0,
+        1,
+        0
+      ],
+      "palette": 1
+    },
+    {
+      "pos": [
+        2,
+        1,
+        0
+      ],
+      "palette": 1
+    },
+    {
+      "pos": [
+        0,
+        1,
+        1
+      ],
+      "palette": 1
+    },
+    {
+      "pos": [
+        2,
+        1,
+        1
+      ],
+      "palette": 1
+    },
+    {
+      "pos": [
+        0,
+        1,
+        2
+      ],
+      "palette": 1
+    },
+    {
+      "pos": [
+        1,
+        1,
+        2
+      ],
+      "palette": 1
+    },
+    {
+      "pos": [
+        2,
+        1,
+        2
+      ],
+      "palette": 1
+    },
+    {
+      "pos": [
+        0,
+        2,
+        0
+      ],
+      "palette": 1
+    },
+    {
+      "pos": [
+        1,
+        2,
+        0
+      ],
+      "palette": 1
+    },
+    {
+      "pos": [
+        2,
+        2,
+        0
+      ],
+      "palette": 1
+    },
+    {
+      "pos": [
+        0,
+        2,
+        1
+      ],
+      "palette": 1
+    },
+    {
+      "pos": [
+        1,
+        2,
+        1
+      ],
+      "palette": 1
+    },
+    {
+      "pos": [
+        2,
+        2,
+        1
+      ],
+      "palette": 1
+    },
+    {
+      "pos": [
+        0,
+        2,
+        2
+      ],
+      "palette": 1
+    },
+    {
+      "pos": [
+        1,
+        2,
+        2
+      ],
+      "palette": 1
+    },
+    {
+      "pos": [
+        2,
+        2,
+        2
+      ],
+      "palette": 1
+    }
+  ],
+  "checksum": "8a47481cbe75ded3675a14b840bba48b38b39180cfe40ae53007c5a096530e3a"
+}

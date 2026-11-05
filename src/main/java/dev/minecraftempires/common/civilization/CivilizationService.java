@@ -1,5 +1,9 @@
 package dev.minecraftempires.common.civilization;
 
+import dev.minecraftempires.common.building.BlueprintCatalog;
+import dev.minecraftempires.common.building.BlueprintDefinition;
+import dev.minecraftempires.common.building.BuildingRecord;
+import dev.minecraftempires.common.building.BuildingState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
@@ -34,6 +38,48 @@ public final class CivilizationService {
         return repository.citizensForFaction(factionId);
     }
     public Optional<CitizenRecord> findCitizen(final UUID id) { return repository.findCitizen(id); }
+
+    public List<BuildingRecord> buildings() { return repository.buildings(); }
+
+    public List<BuildingRecord> buildingsForSettlement(final UUID settlementId) {
+        if (repository.findSettlement(settlementId).isEmpty()) {
+            throw new IllegalArgumentException("Settlement does not exist: " + settlementId);
+        }
+        return repository.buildingsForSettlement(settlementId);
+    }
+
+    public Optional<BuildingRecord> findBuilding(final UUID id) {
+        return repository.findBuilding(id);
+    }
+
+    /** Persists a monotonic, idempotent world-placement update for an existing building. */
+    public void updateBuildingPlacement(final BuildingRecord updated) {
+        worldData.ensureWritable();
+        final BuildingRecord previous = repository.findBuilding(updated.id())
+                .orElseThrow(() -> new IllegalArgumentException("Building does not exist: " + updated.id()));
+        if (updated.placementCursor() < previous.placementCursor()) {
+            throw new IllegalArgumentException("Building placement cursor cannot move backwards: " + updated.id());
+        }
+        if (previous.worldSyncState() == dev.minecraftempires.common.building.WorldSyncState.SYNCED
+                && updated.worldSyncState() != dev.minecraftempires.common.building.WorldSyncState.SYNCED) {
+            throw new IllegalStateException("A synced building cannot silently return to placement: " + updated.id());
+        }
+        final boolean validTransition = switch (previous.worldSyncState()) {
+            case NOT_PLACED -> updated.worldSyncState() == dev.minecraftempires.common.building.WorldSyncState.PENDING;
+            case PENDING -> updated.worldSyncState() == dev.minecraftempires.common.building.WorldSyncState.PENDING
+                    || updated.worldSyncState() == dev.minecraftempires.common.building.WorldSyncState.SYNCED
+                    || updated.worldSyncState() == dev.minecraftempires.common.building.WorldSyncState.NEEDS_REPAIR;
+            case NEEDS_REPAIR -> updated.worldSyncState() == dev.minecraftempires.common.building.WorldSyncState.NEEDS_REPAIR
+                    || updated.worldSyncState() == dev.minecraftempires.common.building.WorldSyncState.PENDING;
+            case SYNCED -> updated.worldSyncState() == dev.minecraftempires.common.building.WorldSyncState.SYNCED;
+            case OUT_OF_SYNC -> updated.worldSyncState() == dev.minecraftempires.common.building.WorldSyncState.NEEDS_REPAIR;
+        };
+        if (!validTransition) {
+            throw new IllegalStateException("Invalid world placement transition for building " + updated.id()
+                    + ": " + previous.worldSyncState() + " -> " + updated.worldSyncState());
+        }
+        repository.saveBuilding(updated);
+    }
 
     public FactionRecord createFaction(
             final String displayName,
@@ -100,6 +146,83 @@ public final class CivilizationService {
         repository.saveCitizen(citizen);
         refreshPopulationCache(factionId);
         return citizen;
+    }
+
+    /**
+     * Plans a logical building at an anchor position. This milestone does not inspect or modify
+     * world blocks, load chunks, reserve materials, or advance construction progress.
+     */
+    public BuildingRecord planBuilding(
+            final UUID settlementId,
+            final ResourceLocation blueprintId,
+            final ResourceLocation dimensionId,
+            final BlockPos origin,
+            final int rotationDegrees,
+            final long gameTime
+    ) {
+        worldData.ensureWritable();
+        final SettlementRecord settlement = repository.findSettlement(settlementId)
+                .orElseThrow(() -> new IllegalArgumentException("Settlement does not exist: " + settlementId));
+        if (settlement.status() != SettlementStatus.ACTIVE) {
+            throw new IllegalArgumentException("Cannot plan a building in an inactive settlement");
+        }
+        if (!settlement.dimensionId().equals(dimensionId)) {
+            throw new IllegalArgumentException("Building must be planned in the settlement dimension " + settlement.dimensionId());
+        }
+        final FactionRecord faction = repository.findFaction(settlement.ownerFactionId())
+                .orElseThrow(() -> new IllegalStateException("Settlement owner faction is missing: " + settlement.ownerFactionId()));
+        if (faction.status() != FactionStatus.ACTIVE) {
+            throw new IllegalArgumentException("Cannot plan a building for an inactive faction");
+        }
+        final BlueprintDefinition blueprint = BlueprintCatalog.find(blueprintId)
+                .orElseThrow(() -> new IllegalArgumentException("Unknown blueprint: " + blueprintId));
+        if (!blueprint.allowsRotation(rotationDegrees)) {
+            throw new IllegalArgumentException("Blueprint " + blueprintId + " does not allow rotation " + rotationDegrees);
+        }
+
+        final int newSizeX = blueprint.rotatedSizeX(rotationDegrees);
+        final int newSizeY = blueprint.sizeY();
+        final int newSizeZ = blueprint.rotatedSizeZ(rotationDegrees);
+        for (BuildingRecord existing : repository.buildings()) {
+            if (existing.state() == BuildingState.DEMOLISHED
+                    || !existing.dimensionId().equals(dimensionId)) {
+                continue;
+            }
+            final BlueprintDefinition existingBlueprint = BlueprintCatalog.find(existing.blueprintId())
+                    .orElseThrow(() -> new IllegalStateException("Cannot safely validate overlap with unknown blueprint "
+                            + existing.blueprintId() + " on building " + existing.id()));
+            if (existing.blueprintVersion() != existingBlueprint.version()) {
+                throw new IllegalStateException("Cannot safely validate overlap with outdated blueprint version on building "
+                        + existing.id() + "; expected " + existingBlueprint.version() + ", found " + existing.blueprintVersion());
+            }
+            final int existingSizeX = existingBlueprint.rotatedSizeX(existing.rotationDegrees());
+            final int existingSizeY = existingBlueprint.sizeY();
+            final int existingSizeZ = existingBlueprint.rotatedSizeZ(existing.rotationDegrees());
+            if (intersects(origin, newSizeX, newSizeY, newSizeZ,
+                    existing.origin(), existingSizeX, existingSizeY, existingSizeZ)) {
+                throw new IllegalArgumentException("Building footprint overlaps existing building " + existing.id());
+            }
+        }
+
+        final BuildingRecord record = BuildingRecord.planned(blueprint, faction.id(), settlement.id(),
+                dimensionId, origin, rotationDegrees, gameTime);
+        repository.saveBuilding(record);
+        return record;
+    }
+
+    private static boolean intersects(
+            final BlockPos first,
+            final int firstX,
+            final int firstY,
+            final int firstZ,
+            final BlockPos second,
+            final int secondX,
+            final int secondY,
+            final int secondZ
+    ) {
+        return first.getX() < second.getX() + secondX && second.getX() < first.getX() + firstX
+                && first.getY() < second.getY() + secondY && second.getY() < first.getY() + firstY
+                && first.getZ() < second.getZ() + secondZ && second.getZ() < first.getZ() + firstZ;
     }
 
     /**

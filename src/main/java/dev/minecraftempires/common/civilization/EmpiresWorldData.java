@@ -1,6 +1,7 @@
 package dev.minecraftempires.common.civilization;
 
 import dev.minecraftempires.MinecraftEmpires;
+import dev.minecraftempires.common.building.BuildingRecord;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.StringTag;
@@ -25,7 +26,7 @@ import java.util.stream.Collectors;
  */
 public final class EmpiresWorldData extends SavedData {
     public static final String DATA_NAME = "minecraft_empires_world";
-    public static final int CURRENT_SCHEMA_VERSION = 2;
+    public static final int CURRENT_SCHEMA_VERSION = 3;
     private static final int MIN_SUPPORTED_SCHEMA_VERSION = 1;
 
     private final UUID worldId;
@@ -33,6 +34,7 @@ public final class EmpiresWorldData extends SavedData {
     private final Map<UUID, FactionRecord> factions = new LinkedHashMap<>();
     private final Map<UUID, SettlementRecord> settlements = new LinkedHashMap<>();
     private final Map<UUID, CitizenRecord> citizens = new LinkedHashMap<>();
+    private final Map<UUID, BuildingRecord> buildings = new LinkedHashMap<>();
     private long simulationClock;
     private boolean readOnly;
     private String readOnlyReason = "";
@@ -68,6 +70,7 @@ public final class EmpiresWorldData extends SavedData {
     public int factionCount() { return factions.size(); }
     public int settlementCount() { return settlements.size(); }
     public int citizenCount() { return citizens.size(); }
+    public int buildingCount() { return buildings.size(); }
     public int schemaVersion() { return sourceSchemaVersion; }
     public boolean isReadOnly() { return readOnly; }
     public String readOnlyReason() { return readOnlyReason; }
@@ -102,6 +105,20 @@ public final class EmpiresWorldData extends SavedData {
                 .collect(Collectors.toUnmodifiableList());
     }
 
+    public Optional<BuildingRecord> findBuilding(final UUID id) {
+        return Optional.ofNullable(buildings.get(id));
+    }
+
+    public List<BuildingRecord> buildings() {
+        return List.copyOf(buildings.values());
+    }
+
+    public List<BuildingRecord> buildingsForSettlement(final UUID settlementId) {
+        return buildings.values().stream()
+                .filter(building -> building.settlementId().equals(settlementId))
+                .collect(Collectors.toUnmodifiableList());
+    }
+
     void putFaction(final FactionRecord record) {
         ensureWritable();
         factions.put(record.id(), record);
@@ -112,6 +129,12 @@ public final class EmpiresWorldData extends SavedData {
         ensureWritable();
         if (!factions.containsKey(record.ownerFactionId())) {
             throw new IllegalArgumentException("Settlement owner faction does not exist: " + record.ownerFactionId());
+        }
+        for (UUID indexedBuildingId : record.buildingIds()) {
+            final BuildingRecord building = buildings.get(indexedBuildingId);
+            if (building == null || !building.settlementId().equals(record.id())) {
+                throw new IllegalArgumentException("Settlement building index contains an unknown or foreign building: " + indexedBuildingId);
+            }
         }
         settlements.put(record.id(), record);
         setDirty();
@@ -132,6 +155,41 @@ public final class EmpiresWorldData extends SavedData {
             }
         }
         citizens.put(record.id(), record);
+        setDirty();
+    }
+
+    /** Atomically updates the building map and its owning settlement's reverse index. */
+    void putBuilding(final BuildingRecord record) {
+        ensureWritable();
+        if (!factions.containsKey(record.ownerFactionId())) {
+            throw new IllegalArgumentException("Building owner faction does not exist: " + record.ownerFactionId());
+        }
+        final SettlementRecord settlement = settlements.get(record.settlementId());
+        if (settlement == null) {
+            throw new IllegalArgumentException("Building settlement does not exist: " + record.settlementId());
+        }
+        if (!settlement.ownerFactionId().equals(record.ownerFactionId())) {
+            throw new IllegalArgumentException("Building owner faction must match its settlement owner");
+        }
+        if (!settlement.dimensionId().equals(record.dimensionId())) {
+            throw new IllegalArgumentException("Building dimension must match its settlement dimension");
+        }
+
+        final BuildingRecord previous = buildings.get(record.id());
+        if (previous != null && (!previous.ownerFactionId().equals(record.ownerFactionId())
+                || !previous.settlementId().equals(record.settlementId())
+                || !previous.blueprintId().equals(record.blueprintId())
+                || previous.blueprintVersion() != record.blueprintVersion()
+                || !previous.dimensionId().equals(record.dimensionId())
+                || !previous.origin().equals(record.origin())
+                || previous.rotationDegrees() != record.rotationDegrees())) {
+            throw new IllegalArgumentException("A persisted building cannot change its identity, owner, blueprint or placement: " + record.id());
+        }
+
+        // Build both replacement values before publishing either one; all calls run on the server thread.
+        final SettlementRecord indexedSettlement = settlement.withBuildingId(record.id());
+        buildings.put(record.id(), record);
+        settlements.put(settlement.id(), indexedSettlement);
         setDirty();
     }
 
@@ -183,6 +241,12 @@ public final class EmpiresWorldData extends SavedData {
             citizenTags.add(citizen.save());
         }
         tag.put("citizens", citizenTags);
+
+        final ListTag buildingTags = new ListTag();
+        for (BuildingRecord building : buildings.values()) {
+            buildingTags.add(building.save());
+        }
+        tag.put("buildings", buildingTags);
         return tag;
     }
 
@@ -249,7 +313,7 @@ public final class EmpiresWorldData extends SavedData {
 
             if (loadedSchema >= 2) {
                 if (!tag.contains("citizens", Tag.TAG_LIST)) {
-                    throw new IllegalArgumentException("Schema 2 data is missing citizens list");
+                    throw new IllegalArgumentException("Schema 2+ data is missing citizens list");
                 }
                 final ListTag citizenTags = tag.getList("citizens", Tag.TAG_COMPOUND);
                 for (int index = 0; index < citizenTags.size(); index++) {
@@ -267,10 +331,62 @@ public final class EmpiresWorldData extends SavedData {
                         throw new IllegalArgumentException("Duplicate citizen id: " + record.id());
                     }
                 }
+            }
+
+            if (loadedSchema >= 3) {
+                if (!tag.contains("buildings", Tag.TAG_LIST)) {
+                    throw new IllegalArgumentException("Schema 3 data is missing buildings list");
+                }
+                final ListTag buildingTags = tag.getList("buildings", Tag.TAG_COMPOUND);
+                for (int index = 0; index < buildingTags.size(); index++) {
+                    final CompoundTag buildingTag = buildingTags.getCompound(index);
+                    final int savedBuildingSchema = buildingTag.getInt("schema_version");
+                    final BuildingRecord record = BuildingRecord.load(buildingTag);
+                    if (savedBuildingSchema < BuildingRecord.CURRENT_SCHEMA_VERSION) {
+                        data.setDirty();
+                        MinecraftEmpires.LOGGER.info("Migrated building record {} from schema {} to schema {}.",
+                                record.id(), savedBuildingSchema, BuildingRecord.CURRENT_SCHEMA_VERSION);
+                    }
+                    if (!data.factions.containsKey(record.ownerFactionId())) {
+                        throw new IllegalArgumentException("Building references missing faction: " + record.ownerFactionId());
+                    }
+                    final SettlementRecord settlement = data.settlements.get(record.settlementId());
+                    if (settlement == null || !settlement.ownerFactionId().equals(record.ownerFactionId())
+                            || !settlement.dimensionId().equals(record.dimensionId())) {
+                        throw new IllegalArgumentException("Building references an invalid settlement: " + record.settlementId());
+                    }
+                    if (data.buildings.putIfAbsent(record.id(), record) != null) {
+                        throw new IllegalArgumentException("Duplicate building id: " + record.id());
+                    }
+                }
             } else {
-                // Schema 1 had no citizen records. Mark dirty so the migrated schema 2 payload is saved.
+                // A pre-schema-3 save must not contain building rows that this version cannot safely interpret.
+                if (tag.contains("buildings", Tag.TAG_LIST)
+                        && !tag.getList("buildings", Tag.TAG_COMPOUND).isEmpty()) {
+                    throw new IllegalArgumentException("Pre-schema-3 data unexpectedly contains building records");
+                }
+            }
+
+            // Verify both directions of the Settlement <-> Building index before allowing writes.
+            for (SettlementRecord settlement : data.settlements.values()) {
+                for (UUID buildingId : settlement.buildingIds()) {
+                    final BuildingRecord building = data.buildings.get(buildingId);
+                    if (building == null || !building.settlementId().equals(settlement.id())) {
+                        throw new IllegalArgumentException("Settlement building index references a missing or foreign building: " + buildingId);
+                    }
+                }
+            }
+            for (BuildingRecord building : data.buildings.values()) {
+                final SettlementRecord settlement = data.settlements.get(building.settlementId());
+                if (settlement == null || !settlement.buildingIds().contains(building.id())) {
+                    throw new IllegalArgumentException("Building is missing from its settlement reverse index: " + building.id());
+                }
+            }
+
+            if (loadedSchema < CURRENT_SCHEMA_VERSION) {
                 data.setDirty();
-                MinecraftEmpires.LOGGER.info("Migrated Minecraft Empires world data from schema 1 to schema 2.");
+                MinecraftEmpires.LOGGER.info("Migrated Minecraft Empires world data from schema {} to schema {}.",
+                        loadedSchema, CURRENT_SCHEMA_VERSION);
             }
             return data;
         } catch (RuntimeException exception) {

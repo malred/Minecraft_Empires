@@ -11,6 +11,7 @@ public final class EmpiresConfig {
     public static final ForgeConfigSpec.IntValue SIMULATION_BUDGET_PER_TICK;
     public static final ForgeConfigSpec.IntValue SIMULATION_INTERVAL_TICKS;
     public static final ForgeConfigSpec.IntValue SIMULATION_TEST_WOOD_PER_CYCLE;
+    public static final ForgeConfigSpec.IntValue BUILDING_PLACEMENT_BLOCKS_PER_TICK;
     public static final ForgeConfigSpec SPEC;
 
     static {
@@ -35,6 +36,10 @@ public final class EmpiresConfig {
         SIMULATION_TEST_WOOD_PER_CYCLE = BUILDER
                 .comment("TEMPORARY M0-008 validation output: add this many empires:wood to each active AI faction per simulation cycle. Set to 0 to disable the test output; later building production will replace it.")
                 .defineInRange("simulationTestWoodPerCycle", 1, 0, 1000000);
+
+        BUILDING_PLACEMENT_BLOCKS_PER_TICK = BUILDER
+                .comment("Maximum structure-template blocks placed by Minecraft Empires per server tick. Placement pauses when target chunks are not already loaded.")
+                .defineInRange("buildingPlacementBlocksPerTick", 8, 1, 4096);
 
         BUILDER.pop();
         SPEC = BUILDER.build();

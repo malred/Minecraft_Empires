@@ -1,5 +1,7 @@
 package dev.minecraftempires.common.civilization;
 
+import dev.minecraftempires.common.building.BuildingRecord;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -16,4 +18,8 @@ public interface CivilizationRepository {
     List<CitizenRecord> citizens();
     List<CitizenRecord> citizensForFaction(UUID factionId);
     void saveCitizen(CitizenRecord record);
+    Optional<BuildingRecord> findBuilding(UUID id);
+    List<BuildingRecord> buildings();
+    List<BuildingRecord> buildingsForSettlement(UUID settlementId);
+    void saveBuilding(BuildingRecord record);
 }

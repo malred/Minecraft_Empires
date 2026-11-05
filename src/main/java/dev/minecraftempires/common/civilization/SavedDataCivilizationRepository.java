@@ -1,5 +1,6 @@
 package dev.minecraftempires.common.civilization;
 
+import dev.minecraftempires.common.building.BuildingRecord;
 import net.minecraft.server.MinecraftServer;
 
 import java.util.List;
@@ -30,4 +31,10 @@ public final class SavedDataCivilizationRepository implements CivilizationReposi
     @Override public List<CitizenRecord> citizens() { return data.citizens(); }
     @Override public List<CitizenRecord> citizensForFaction(final UUID factionId) { return data.citizensForFaction(factionId); }
     @Override public void saveCitizen(final CitizenRecord record) { data.putCitizen(record); }
+    @Override public Optional<BuildingRecord> findBuilding(final UUID id) { return data.findBuilding(id); }
+    @Override public List<BuildingRecord> buildings() { return data.buildings(); }
+    @Override public List<BuildingRecord> buildingsForSettlement(final UUID settlementId) {
+        return data.buildingsForSettlement(settlementId);
+    }
+    @Override public void saveBuilding(final BuildingRecord record) { data.putBuilding(record); }
 }

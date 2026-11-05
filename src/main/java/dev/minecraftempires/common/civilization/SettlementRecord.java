@@ -41,7 +41,11 @@ public final class SettlementRecord {
         this.dimensionId = Objects.requireNonNull(dimensionId, "dimensionId");
         this.anchorPosition = Objects.requireNonNull(anchorPosition, "anchorPosition").immutable();
         this.status = Objects.requireNonNull(status, "status");
-        this.buildingIds = Collections.unmodifiableSet(new LinkedHashSet<>(buildingIds));
+        final Set<UUID> copiedBuildingIds = new LinkedHashSet<>(Objects.requireNonNull(buildingIds, "buildingIds"));
+        if (copiedBuildingIds.contains(null)) {
+            throw new IllegalArgumentException("Settlement building ID index cannot contain null");
+        }
+        this.buildingIds = Collections.unmodifiableSet(copiedBuildingIds);
         if (createdAtGameTime < 0L || schemaVersion != CURRENT_SCHEMA_VERSION) {
             throw new IllegalArgumentException("Invalid settlement timestamp or unsupported schema version: " + schemaVersion);
         }
@@ -73,6 +77,27 @@ public final class SettlementRecord {
                 newStatus, buildingIds, createdAtGameTime, CURRENT_SCHEMA_VERSION);
     }
 
+    public SettlementRecord withBuildingId(final UUID buildingId) {
+        Objects.requireNonNull(buildingId, "buildingId");
+        if (buildingIds.contains(buildingId)) {
+            return this;
+        }
+        final Set<UUID> updated = new LinkedHashSet<>(buildingIds);
+        updated.add(buildingId);
+        return new SettlementRecord(id, ownerFactionId, dimensionId, anchorPosition,
+                status, updated, createdAtGameTime, CURRENT_SCHEMA_VERSION);
+    }
+
+    public SettlementRecord withoutBuildingId(final UUID buildingId) {
+        if (!buildingIds.contains(buildingId)) {
+            return this;
+        }
+        final Set<UUID> updated = new LinkedHashSet<>(buildingIds);
+        updated.remove(buildingId);
+        return new SettlementRecord(id, ownerFactionId, dimensionId, anchorPosition,
+                status, updated, createdAtGameTime, CURRENT_SCHEMA_VERSION);
+    }
+
     CompoundTag save() {
         final CompoundTag tag = new CompoundTag();
         tag.putUUID("id", id);
@@ -101,7 +126,10 @@ public final class SettlementRecord {
         final Set<UUID> buildings = new LinkedHashSet<>();
         final ListTag buildingTags = tag.getList("building_ids", Tag.TAG_STRING);
         for (int index = 0; index < buildingTags.size(); index++) {
-            buildings.add(UUID.fromString(buildingTags.getString(index)));
+            final UUID buildingId = UUID.fromString(buildingTags.getString(index));
+            if (!buildings.add(buildingId)) {
+                throw new IllegalArgumentException("Duplicate building ID in settlement index: " + buildingId);
+            }
         }
         return new SettlementRecord(
                 tag.getUUID("id"), tag.getUUID("owner_faction_id"), dimension,
