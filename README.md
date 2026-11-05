@@ -27,12 +27,11 @@ Minecraft Java Edition 的文明经营、基地建设与即时战略模组。项
 
 ### 最新开发中的内容
 
-- M0-011 新增只读世界数据一致性诊断：`/empires debug validate [page]`。
-- 代码已提交到 `main`；仍需用户本地运行 `gradlew.bat build` 和游戏内命令验收，不能把这次新增代码视为已编译/运行通过。
+- M0-011 只读世界数据一致性诊断：`/empires debug validate [page]`。用户于 2026-11-06 在本地完成 `gradlew.bat build`（BUILD SUCCESSFUL）和原存档命令测试（PASS：0 errors、0 warnings）。Dedicated Server 与损坏数据 fixture 仍未测试。
 
 ### 明确尚未完成
 
-- M0-011 新命令的本地构建、客户端和 Dedicated Server 验收。
+- M0-011 Dedicated Server 验收、损坏数据 fixture 自动化测试。
 - M0-012 完整 M0 集成验收；包括异常恢复、模板损坏、未加载区块暂停/恢复、迁移 fixture、服务端环境等测试。
 - M1：正式大本营、材料预留、施工项目、Builder Job、施工进度、完成/激活、取消与修复。
 - M2 及以后：完整职业、资源点、生产仓储、种族、科技、军事 RTS、AI 文明、外交和多人等。
