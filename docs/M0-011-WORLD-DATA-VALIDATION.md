@@ -93,9 +93,11 @@
 - [x] 代码已提交到 GitHub main。
 - [x] 命令已实现分页输出。
 - [x] 文档已同步。
-- [ ] 用户本地 `gradlew.bat build`：NOT RUN。
-- [ ] Forge 客户端命令测试：NOT RUN。
+- [x] 用户本地 `gradlew.bat build`：BUILD SUCCESSFUL（25s，7 actionable tasks）。
+- [x] Forge 客户端启动及命令测试：PASS（2026-11-06，原存档成功执行 validate）。
 - [ ] Dedicated Server 测试：NOT RUN。
 - [ ] 自动化/损坏数据 fixture 测试：NOT RUN。
 
-本提交作者没有在用户 Windows Forge 环境中执行构建或启动游戏；不得把上述 NOT RUN 项标记为通过。
+用户实际验收日志（2026-11-06）：Java 17.0.12 / Gradle 8.8，`BUILD SUCCESSFUL in 25s`；进入既有世界后 status 显示 schema=3、worldId=6ba6a5f4-e5f9-4e01-bfaa-f86a0aeac64c、factions=1、settlements=2、citizens=3、readOnly=false；validate 显示 factions=1、settlements=2、citizens=3、buildings=2、errors=0、warnings=0、PASS。当前客户端处于 `runClient` 常驻任务中。三个 `ResourceLocation(String,String)` removal warnings 来自 `EmpiresCommands.seedResources` 旧代码路径，不影响本次构建结果。
+
+剩余 NOT RUN 项仍不得标记为通过。
