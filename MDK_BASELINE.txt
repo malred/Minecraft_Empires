@@ -1,0 +1,6 @@
+﻿Minecraft Empires M0-001 baseline
+Minecraft: 1.20.1
+Forge: 47.4.28
+MDK SHA-1: eee9145e892bb5ca5fe72323bd81c8522c53417f
+MDK URL: https://maven.minecraftforge.net/net/minecraftforge/forge/1.20.1-47.4.28/forge-1.20.1-47.4.28-mdk.zip
+Wrapper files: copied unchanged from the verified official MDK archive.
