@@ -14,7 +14,7 @@
 
 `src/main/java/dev/minecraftempires/common/civilization/M0IntegrationGameTests.java`
 
-使用 Forge/Minecraft 内置 GameTest 框架，不增加第三方依赖。测试使用 `minecraft:empty` 结构模板，所有数据测试都在内存中构建独立 `EmpiresWorldData`，不打开、覆盖或删除用户的 `新的世界2`。
+使用 Forge/Minecraft 内置 GameTest 框架，不增加第三方依赖。测试使用模组自带的 `empires:gametest_empty_5x5x5` 空结构模板，所有数据测试都在内存中构建独立 `EmpiresWorldData`，不打开、覆盖或删除用户的 `新的世界2`。
 
 | GameTest | 覆盖内容 | 预期 |
 |---|---|---|
@@ -23,6 +23,7 @@
 | `officialWarehouseTemplateLoadsAndMatchesChecksum` | 从服务器 ResourceManager 读取官方 JSON 模板 | 3×3×3、25 个 block entries、SHA-256 与 catalog 一致 |
 | `validatorReportsPopulationCacheMismatch` | 构造 ACTIVE CitizenRecord 与错误人口缓存 | 报告 1 个 WARNING，不报告结构 ERROR |
 | `validatorDetectsOverlappingBuildings` | 构造占地相交的两条建筑记录 | 报告 1 个 ERROR |
+| `placementAdapterPlacesTemplateAndRejectsReplay` | 调用真实 `BuildingPlacementService` 在隔离 GameTest 结构内放置官方模板，并再次尝试启动 | cursor=25、SYNCED、逻辑状态仍 PLANNED、地板/墙体/入口位置正确，重复放置被拒绝 |
 | `validatorDetectsDuplicateCitizenEntityLinks` | 两名逻辑居民绑定相同 Entity UUID | 报告 1 个 ERROR |
 | `futureSchemaIsPreservedReadOnly` | 加载高于当前 schema 的模拟 NBT | 进入只读模式，未知字段及 schema 原样保留 |
 
