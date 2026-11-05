@@ -163,3 +163,21 @@ Set-Location "D:\code-d\projects\mc\Minecraft_Empires_M0_001_Starter\MinecraftEm
 6. 重启后的 building-placement 和 simulation 结果。
 
 所有尚未运行的专用服务器、恢复注入和边界测试都先记为 NOT RUN，不把它们提前算作通过。
+
+
+## 八、M0-011 世界数据一致性诊断
+
+在最新 M0-011 代码中，增加以下只读诊断命令：
+
+```mcfunction
+/empires debug validate
+/empires debug validate 2
+```
+
+默认显示第 1 页，每页最多 12 条诊断；第二个参数是页码。摘要会列出 Faction、Settlement、Citizen、Building 数量，以及错误/警告数。若没有问题，应显示 `World validation: PASS` 和 `No consistency issues found.`。
+
+校验内容包括：势力首都引用、聚落所有者、聚落与建筑双向索引、居民所有者/住所引用、重复实体 UUID 链接、ACTIVE 人口缓存、建筑所有者/维度/聚落、蓝图 ID/版本/manifest checksum/旋转、放置游标范围，以及同维度建筑占地重叠。
+
+该命令不加载区块、不扫描 Minecraft 实体、不检查真实方块外观、不自动修复数据。实体 UUID 只检查逻辑记录之间是否重复；不因目标实体未加载就判定居民丢失。物理模板 JSON 的完整 SHA-256 验证仍由 `building-placement` 查询/放置路径执行。
+
+执行后请保存：命令输出全部页、`/empires debug status`、`gradlew.bat build` 末尾。若出现 ERROR，不要手工编辑 NBT 或删除记录，先把完整诊断发回。
