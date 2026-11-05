@@ -8,6 +8,8 @@
 
 ## 自动化测试
 
+当前共 8 个必需 GameTest，均属于 `empires.m0_012` batch。实际 placement 集成测试在隔离结构范围内创建 3×3 石质地基并放置官方仓库模板，使用注入的内存 SavedData repository，不会向 GameTestServer 的持久 SavedData 写入模拟势力/建筑。
+
 测试类：
 
 `src/main/java/dev/minecraftempires/common/civilization/M0IntegrationGameTests.java`
@@ -16,7 +18,8 @@
 
 | GameTest | 覆盖内容 | 预期 |
 |---|---|---|
-| `savedDataRoundTripPreservesWorldAndBuilding` | SavedData NBT save/load；世界 UUID、势力/聚落/居民/建筑数量、建筑 UUID、placement cursor | 重载后仍可写、校验 PASS、无 WARNING |
+| `savedDataRoundTripPreservesWorldAndBuilding` | SavedData NBT save/load；世界 UUID、势力/聚落/居民/建筑数量、建筑 UUID、已完成 placement cursor | 重载后仍可写、校验 PASS、无 WARNING |
+| `pendingPlacementCursorSurvivesSavedDataRoundTrip` | PENDING 状态和 cursor=8 的中途放置记录 NBT 往返 | 游标、PENDING 状态和 PLANNED 逻辑状态保持 |
 | `officialWarehouseTemplateLoadsAndMatchesChecksum` | 从服务器 ResourceManager 读取官方 JSON 模板 | 3×3×3、25 个 block entries、SHA-256 与 catalog 一致 |
 | `validatorReportsPopulationCacheMismatch` | 构造 ACTIVE CitizenRecord 与错误人口缓存 | 报告 1 个 WARNING，不报告结构 ERROR |
 | `validatorDetectsOverlappingBuildings` | 构造占地相交的两条建筑记录 | 报告 1 个 ERROR |
@@ -62,10 +65,10 @@ GameTest 不替代下列真实运行场景：
 
 ## 当前验收状态（2026-11-06）
 
-- [x] 六个 GameTest 方法已加入源码。
+- [x] 八个 GameTest 方法已加入源码。
 - [x] GameTestServer 采用独立 `run-gametest` 工作目录。
 - [x] 不增加第三方依赖。
-- [ ] 用户本地 `gradlew.bat build`：等待运行。
+- [ ] 用户本地 `gradlew.bat build`：等待本轮新测试代码后运行。
 - [ ] 用户本地 `gradlew.bat runGameTestServer`：等待运行。
 - [ ] 原存档完整回归：部分项目已通过，仍需本轮回归确认。
 - [ ] 中途强制中断/区块卸载/模板损坏：NOT RUN。
