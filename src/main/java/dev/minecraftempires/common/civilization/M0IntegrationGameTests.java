@@ -4,6 +4,7 @@ import dev.minecraftempires.MinecraftEmpires;
 import dev.minecraftempires.common.building.BlueprintCatalog;
 import dev.minecraftempires.common.building.BlueprintDefinition;
 import dev.minecraftempires.common.building.BlueprintTemplate;
+import dev.minecraftempires.common.building.BuildingPlacementService;
 import dev.minecraftempires.common.building.BuildingRecord;
 import dev.minecraftempires.common.building.WorldSyncState;
 import net.minecraft.core.BlockPos;
@@ -11,6 +12,7 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
 
@@ -134,6 +136,65 @@ public final class M0IntegrationGameTests {
                 "Warehouse template should contain 25 placed block entries");
         helper.assertTrue(template.checksum().equals(blueprint.templateContentChecksum()),
                 "Warehouse JSON content checksum does not match the blueprint catalog");
+        helper.succeed();
+    }
+
+    @GameTest(
+            template = "empty",
+            templateNamespace = "minecraft",
+            batch = "empires.m0_012",
+            timeoutTicks = 40
+    )
+    public static void placementAdapterPlacesTemplateAndRejectsReplay(final GameTestHelper helper) {
+        final var level = helper.getLevel();
+        final BlockPos origin = helper.absolutePos(new BlockPos(2, 2, 2));
+        for (int x = 0; x < 3; x++) {
+            for (int z = 0; z < 3; z++) {
+                level.setBlock(origin.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 3);
+            }
+        }
+
+        final CivilizationService service = CivilizationService.forLevel(level);
+        final FactionRecord faction = service.createFaction(
+                "M0 Placement Test", TEST_SPECIES, ControllerType.AI, level.getGameTime());
+        final SettlementRecord settlement = service.createSettlement(
+                faction.id(), level.dimension().location(), origin, level.getGameTime());
+        final BuildingRecord planned = service.planBuilding(
+                settlement.id(), BlueprintCatalog.WAREHOUSE_PROTOTYPE_ID,
+                level.dimension().location(), origin, 0, level.getGameTime());
+
+        BuildingPlacementService.beginPlacement(level, planned.id());
+        BuildingRecord current = service.findBuilding(planned.id()).orElseThrow();
+        helper.assertTrue(current.worldSyncState() == WorldSyncState.PENDING,
+                "Placement should enter PENDING before any block is written");
+
+        int processCalls = 0;
+        while (current.placementCursor() < 25 && processCalls < 32) {
+            BuildingPlacementService.processPending(level.getServer());
+            current = service.findBuilding(planned.id()).orElseThrow();
+            processCalls++;
+        }
+
+        helper.assertTrue(current.placementCursor() == 25,
+                "Placement did not complete 25 template entries; cursor=" + current.placementCursor());
+        helper.assertTrue(current.worldSyncState() == WorldSyncState.SYNCED,
+                "Placement did not transition to SYNCED");
+        helper.assertTrue(current.state() == dev.minecraftempires.common.building.BuildingState.PLANNED,
+                "M0-010 placement must not mark the logical building as constructed/ACTIVE");
+        helper.assertTrue(level.getBlockState(origin).is(Blocks.COBBLESTONE),
+                "Expected cobblestone at the warehouse floor origin");
+        helper.assertTrue(level.getBlockState(origin.offset(0, 1, 0)).is(Blocks.OAK_PLANKS),
+                "Expected an oak-plank wall block");
+        helper.assertTrue(level.getBlockState(origin.offset(1, 1, 0)).isAir(),
+                "Expected the centered entrance to remain open");
+
+        boolean replayRejected = false;
+        try {
+            BuildingPlacementService.beginPlacement(level, planned.id());
+        } catch (IllegalStateException expected) {
+            replayRejected = true;
+        }
+        helper.assertTrue(replayRejected, "A completed placement must reject a replay attempt");
         helper.succeed();
     }
 
