@@ -8,11 +8,9 @@ import dev.minecraftempires.common.building.WorldSyncState;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -70,12 +68,6 @@ public final class WorldDataValidator {
             final Map<UUID, SettlementRecord> settlements,
             final List<Issue> issues
     ) {
-        final Map<UUID, Integer> activePopulation = new HashMap<>();
-        // Population is calculated from logical CitizenRecords, never from loaded entities.
-        for (CitizenRecord citizen : settlements.isEmpty()
-                ? List.<CitizenRecord>of() : List.<CitizenRecord>of()) {
-            // Kept intentionally empty: population is accumulated in validateCitizens below.
-        }
         for (FactionRecord faction : factions.values()) {
             final UUID capitalId = faction.capitalSettlementId();
             if (capitalId == null) {
