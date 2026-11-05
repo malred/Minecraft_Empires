@@ -25,7 +25,18 @@ public final class BuildingPlacementService {
     }
 
     public static StartResult beginPlacement(final ServerLevel level, final UUID buildingId) {
-        final CivilizationService service = CivilizationService.forLevel(level);
+        return beginPlacement(level, CivilizationService.forLevel(level), buildingId);
+    }
+
+    /**
+     * Explicit-service overload used by isolated integration tests and controlled server adapters.
+     * The default command path continues to resolve the authoritative Overworld SavedData service.
+     */
+    public static StartResult beginPlacement(
+            final ServerLevel level,
+            final CivilizationService service,
+            final UUID buildingId
+    ) {
         final BuildingRecord building = service.findBuilding(buildingId)
                 .orElseThrow(() -> new IllegalArgumentException("Building does not exist: " + buildingId));
         if (!building.dimensionId().equals(level.dimension().location())) {
@@ -55,7 +66,15 @@ public final class BuildingPlacementService {
     }
 
     public static StartResult resumePlacement(final ServerLevel level, final UUID buildingId) {
-        final CivilizationService service = CivilizationService.forLevel(level);
+        return resumePlacement(level, CivilizationService.forLevel(level), buildingId);
+    }
+
+    /** Explicit-service overload for isolated integration tests and controlled server adapters. */
+    public static StartResult resumePlacement(
+            final ServerLevel level,
+            final CivilizationService service,
+            final UUID buildingId
+    ) {
         final BuildingRecord building = service.findBuilding(buildingId)
                 .orElseThrow(() -> new IllegalArgumentException("Building does not exist: " + buildingId));
         if (!building.dimensionId().equals(level.dimension().location())) {
@@ -89,13 +108,24 @@ public final class BuildingPlacementService {
     /** Called once per server END tick. Processes no more than the configured block budget. */
     public static int processPending(final MinecraftServer server) {
         final EmpiresWorldData data = EmpiresWorldData.get(server);
+        final CivilizationService service = CivilizationService.forLevel(server.overworld());
+        return processPending(server, data, service);
+    }
+
+    /**
+     * Explicit-data overload keeps integration tests isolated from the server's persistent world save.
+     * Production scheduler calls the default overload above.
+     */
+    public static int processPending(
+            final MinecraftServer server,
+            final EmpiresWorldData data,
+            final CivilizationService service
+    ) {
         if (data.isReadOnly()) {
             return 0;
         }
         int remainingBudget = EmpiresConfig.BUILDING_PLACEMENT_BLOCKS_PER_TICK.get();
         int placedOrSkipped = 0;
-        final CivilizationService service = CivilizationService.forLevel(server.overworld());
-
         for (BuildingRecord snapshot : data.buildings()) {
             if (remainingBudget <= 0) {
                 break;
