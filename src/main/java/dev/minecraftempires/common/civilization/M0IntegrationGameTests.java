@@ -19,8 +19,8 @@ import net.minecraftforge.gametest.PrefixGameTestTemplate;
 /**
  * M0-012 integration coverage for persistent civilization records and read-only validation.
  *
- * <p>These tests build isolated in-memory SavedData instances. They never open or mutate the
- * player's existing world save or its chunks.</p>
+ * <p>Data tests use isolated in-memory SavedData. The physical placement test mutates only its
+ * dedicated GameTest structure in the separate run-gametest world, never the player's normal save.</p>
  */
 @GameTestHolder(MinecraftEmpires.MOD_ID)
 @PrefixGameTestTemplate(false)
