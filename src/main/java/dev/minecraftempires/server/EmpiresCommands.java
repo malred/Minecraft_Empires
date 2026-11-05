@@ -8,6 +8,7 @@ import dev.minecraftempires.common.civilization.ControllerType;
 import dev.minecraftempires.common.civilization.EmpiresWorldData;
 import dev.minecraftempires.common.civilization.FactionRecord;
 import dev.minecraftempires.common.civilization.ResourceLedger;
+import dev.minecraftempires.common.civilization.WorldDataValidator;
 import dev.minecraftempires.common.civilization.SettlementRecord;
 import dev.minecraftempires.common.entity.CitizenEntity;
 import dev.minecraftempires.registry.ModEntities;
@@ -38,6 +39,8 @@ public final class EmpiresCommands {
     public static void onRegisterCommands(final RegisterCommandsEvent event) {
         final var root = Commands.literal("empires").requires(source -> source.hasPermission(2));
         final var debug = Commands.literal("debug");
+
+        debug.then(Commands.literal("validate").executes(context -> validateWorldData(context.getSource())));
 
         debug.then(Commands.literal("status").executes(context -> {
             final EmpiresWorldData data = EmpiresWorldData.get(context.getSource().getServer());
@@ -369,6 +372,35 @@ public final class EmpiresCommands {
             source.sendFailure(Component.literal(exception.getMessage()));
             return 0;
         }
+    }
+
+
+    private static int validateWorldData(final CommandSourceStack source) {
+        final EmpiresWorldData data = EmpiresWorldData.get(source.getServer());
+        final WorldDataValidator.Report report = WorldDataValidator.validate(data);
+        source.sendSuccess(() -> Component.literal(
+                "World validation: " + (report.passed() ? "PASS" : "FAIL")
+                        + " | factions=" + report.factionsChecked()
+                        + ", settlements=" + report.settlementsChecked()
+                        + ", citizens=" + report.citizensChecked()
+                        + ", buildings=" + report.buildingsChecked()
+                        + ", errors=" + report.errorCount()
+                        + ", warnings=" + report.warningCount()
+        ), false);
+        final int limit = Math.min(report.issues().size(), 12);
+        for (int index = 0; index < limit; index++) {
+            final WorldDataValidator.Issue issue = report.issues().get(index);
+            source.sendSuccess(() -> Component.literal(
+                    "[" + issue.severity() + "] " + issue.message()
+            ), false);
+        }
+        if (report.issues().size() > limit) {
+            source.sendSuccess(() -> Component.literal(
+                    "... and " + (report.issues().size() - limit)
+                            + " more issue(s). See server log only after a future verbose-report option is added."
+            ), false);
+        }
+        return report.passed() ? 1 : 0;
     }
 
     private static Entity findLoadedEntity(final CommandSourceStack source, final UUID entityUuid) {
