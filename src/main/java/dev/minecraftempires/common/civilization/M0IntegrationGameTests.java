@@ -2,6 +2,8 @@ package dev.minecraftempires.common.civilization;
 
 import dev.minecraftempires.MinecraftEmpires;
 import dev.minecraftempires.common.building.BlueprintCatalog;
+import dev.minecraftempires.common.building.BlueprintDefinition;
+import dev.minecraftempires.common.building.BlueprintTemplate;
 import dev.minecraftempires.common.building.BuildingRecord;
 import dev.minecraftempires.common.building.WorldSyncState;
 import net.minecraft.core.BlockPos;
@@ -111,6 +113,58 @@ public final class M0IntegrationGameTests {
         helper.assertTrue("preserve-me".equals(savedAgain.getString("forward_compatibility_sentinel")),
                 "Unknown future data was not preserved");
         helper.assertTrue(!report.passed(), "Validator must report read-only world data as unavailable/error");
+        helper.succeed();
+    }
+
+    @GameTest(
+            template = "empty",
+            templateNamespace = "minecraft",
+            batch = "empires.m0_012",
+            timeoutTicks = 20
+    )
+    public static void officialWarehouseTemplateLoadsAndMatchesChecksum(final GameTestHelper helper) {
+        final BlueprintDefinition blueprint = BlueprintCatalog.find(BlueprintCatalog.WAREHOUSE_PROTOTYPE_ID)
+                .orElseThrow();
+        final BlueprintTemplate template = BlueprintTemplate.load(
+                helper.getLevel().getServer().getResourceManager(), blueprint);
+
+        helper.assertTrue(template.sizeX() == 3 && template.sizeY() == 3 && template.sizeZ() == 3,
+                "Warehouse template dimensions should remain 3x3x3");
+        helper.assertTrue(template.blocks().size() == 25,
+                "Warehouse template should contain 25 placed block entries");
+        helper.assertTrue(template.checksum().equals(blueprint.templateContentChecksum()),
+                "Warehouse JSON content checksum does not match the blueprint catalog");
+        helper.succeed();
+    }
+
+    @GameTest(
+            template = "empty",
+            templateNamespace = "minecraft",
+            batch = "empires.m0_012",
+            timeoutTicks = 20
+    )
+    public static void validatorDetectsDuplicateCitizenEntityLinks(final GameTestHelper helper) {
+        final Fixture fixture = createFixture(2, 0, false);
+        final java.util.UUID sharedEntityId = java.util.UUID.randomUUID();
+        final CitizenRecord first = fixture.data().citizens().get(0);
+        fixture.data().putCitizen(first.withEntityUuid(sharedEntityId));
+        fixture.data().putCitizen(new CitizenRecord(
+                java.util.UUID.randomUUID(),
+                first.ownerFactionId(),
+                first.homeSettlementId(),
+                "M0 Duplicate Citizen",
+                first.speciesId(),
+                first.professionId(),
+                CitizenStatus.ACTIVE,
+                sharedEntityId,
+                0L,
+                CitizenRecord.CURRENT_SCHEMA_VERSION
+        ));
+
+        final WorldDataValidator.Report report = WorldDataValidator.validate(fixture.data());
+        helper.assertTrue(!report.passed(), "Duplicate entity UUID links were not rejected");
+        helper.assertTrue(report.errorCount() == 1,
+                "Expected one duplicate entity UUID error, got " + report.errorCount());
         helper.succeed();
     }
 
