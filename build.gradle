@@ -42,7 +42,10 @@ minecraft {
         }
 
         gameTestServer {
+            // Keep automated GameTests isolated from the normal run/ singleplayer saves.
+            workingDirectory project.file('run-gametest')
             property 'forge.enabledGameTestNamespaces', mod_id
+            args '--nogui'
         }
 
         data {
