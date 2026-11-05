@@ -1,5 +1,6 @@
 package dev.minecraftempires.server;
 
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import dev.minecraftempires.MinecraftEmpires;
 import dev.minecraftempires.common.civilization.CitizenRecord;
@@ -40,7 +41,11 @@ public final class EmpiresCommands {
         final var root = Commands.literal("empires").requires(source -> source.hasPermission(2));
         final var debug = Commands.literal("debug");
 
-        debug.then(Commands.literal("validate").executes(context -> validateWorldData(context.getSource())));
+        debug.then(Commands.literal("validate")
+                .executes(context -> validateWorldData(context.getSource(), 1))
+                .then(Commands.argument("page", IntegerArgumentType.integer(1))
+                        .executes(context -> validateWorldData(
+                                context.getSource(), IntegerArgumentType.getInteger(context, "page")))));
 
         debug.then(Commands.literal("status").executes(context -> {
             final EmpiresWorldData data = EmpiresWorldData.get(context.getSource().getServer());
@@ -375,9 +380,16 @@ public final class EmpiresCommands {
     }
 
 
-    private static int validateWorldData(final CommandSourceStack source) {
+    private static int validateWorldData(final CommandSourceStack source, final int page) {
         final EmpiresWorldData data = EmpiresWorldData.get(source.getServer());
         final WorldDataValidator.Report report = WorldDataValidator.validate(data);
+        final int pageSize = 12;
+        final int pageCount = Math.max(1, (report.issues().size() + pageSize - 1) / pageSize);
+        if (page > pageCount) {
+            source.sendFailure(Component.literal("Validation page " + page
+                    + " does not exist; available pages: 1-" + pageCount + "."));
+            return 0;
+        }
         source.sendSuccess(() -> Component.literal(
                 "World validation: " + (report.passed() ? "PASS" : "FAIL")
                         + " | factions=" + report.factionsChecked()
@@ -386,19 +398,18 @@ public final class EmpiresCommands {
                         + ", buildings=" + report.buildingsChecked()
                         + ", errors=" + report.errorCount()
                         + ", warnings=" + report.warningCount()
+                        + " | page=" + page + "/" + pageCount
         ), false);
-        final int limit = Math.min(report.issues().size(), 12);
-        for (int index = 0; index < limit; index++) {
+        final int start = (page - 1) * pageSize;
+        final int end = Math.min(report.issues().size(), start + pageSize);
+        for (int index = start; index < end; index++) {
             final WorldDataValidator.Issue issue = report.issues().get(index);
             source.sendSuccess(() -> Component.literal(
                     "[" + issue.severity() + "] " + issue.message()
             ), false);
         }
-        if (report.issues().size() > limit) {
-            source.sendSuccess(() -> Component.literal(
-                    "Report truncated: " + (report.issues().size() - limit)
-                            + " additional issue(s) omitted. Resolve the listed issues and run validation again."
-            ), false);
+        if (report.issues().isEmpty()) {
+            source.sendSuccess(() -> Component.literal("No consistency issues found."), false);
         }
         return report.passed() ? 1 : 0;
     }
