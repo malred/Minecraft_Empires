@@ -32,7 +32,7 @@ Minecraft Java Edition 的文明经营、基地建设与即时战略模组。项
 ### 明确尚未完成
 
 - M0-011 Dedicated Server 验收、损坏数据 fixture 自动化测试。
-- M0-012 集成验收进行中：新增 6 个 Forge GameTests，覆盖 SavedData 往返、模板 checksum、人口缓存、建筑重叠、重复实体 UUID、未来 schema 保留；尚未运行 `runGameTestServer`。
+- M0-012 集成验收进行中：新增 8 个 Forge GameTests，覆盖 SavedData 完成/中途游标往返、真实模板校验与方块放置、人口缓存、建筑重叠、重复实体 UUID、未来 schema 只读保护；尚未运行 `runGameTestServer`。
 - 手工集成验收仍需覆盖中途强制停止恢复、目标区块卸载/重新加载、模板篡改和原存档回归。
 - M1：正式大本营、材料预留、施工项目、Builder Job、施工进度、完成/激活、取消与修复。
 - M2 及以后：完整职业、资源点、生产仓储、种族、科技、军事 RTS、AI 文明、外交和多人等。
@@ -90,6 +90,7 @@ Gradle 8.8 目前会提示部分旧 API/插件功能已弃用；这类提示不�
 - [AI 编程助手协作规范](docs/06-AI-AGENT-WORKFLOW.md)
 - [M0-010 方块放置适配器](docs/M0-010-BLOCK-PLACEMENT-ADAPTER.md)
 - [M0-011 世界数据校验](docs/M0-011-WORLD-DATA-VALIDATION.md)
+- [M0-012 集成测试](docs/M0-012-INTEGRATION-TESTS.md)
 
 ## 存档与测试提醒
 
