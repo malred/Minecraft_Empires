@@ -4,6 +4,10 @@ import dev.minecraftempires.MinecraftEmpires;
 import dev.minecraftempires.common.EmpiresConfig;
 import dev.minecraftempires.common.civilization.CivilizationService;
 import dev.minecraftempires.common.civilization.EmpiresWorldData;
+import dev.minecraftempires.common.civilization.FactionRecord;
+import dev.minecraftempires.common.civilization.FactionStatus;
+import dev.minecraftempires.common.civilization.SettlementRecord;
+import dev.minecraftempires.common.civilization.SettlementStatus;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -22,6 +26,71 @@ public final class BuildingPlacementService {
     private static final int SET_BLOCK_FLAGS = 3;
 
     private BuildingPlacementService() {
+    }
+
+    /**
+     * Validates a physical build site and only then creates its logical PLANNED record.
+     * The expected faction ID is supplied by the server-side caller as the ownership context;
+     * this method never trusts a client-provided faction ID.
+     */
+    public static PlanResult planBuilding(
+            final ServerLevel level,
+            final CivilizationService service,
+            final UUID expectedFactionId,
+            final UUID settlementId,
+            final ResourceLocation blueprintId,
+            final BlockPos origin,
+            final int rotationDegrees,
+            final long gameTime
+    ) {
+        service.worldData().ensureWritable();
+
+        final SettlementRecord settlement = service.findSettlement(settlementId)
+                .orElseThrow(() -> new IllegalArgumentException("Settlement does not exist: " + settlementId));
+        if (!settlement.ownerFactionId().equals(expectedFactionId)) {
+            throw new IllegalArgumentException("Settlement " + settlementId
+                    + " does not belong to faction " + expectedFactionId);
+        }
+        if (settlement.status() != SettlementStatus.ACTIVE) {
+            throw new IllegalArgumentException("Cannot plan a building in an inactive settlement");
+        }
+        if (!settlement.dimensionId().equals(level.dimension().location())) {
+            throw new IllegalArgumentException("Settlement belongs to dimension " + settlement.dimensionId()
+                    + "; planning must run in that dimension");
+        }
+
+        final FactionRecord faction = service.findFaction(expectedFactionId)
+                .orElseThrow(() -> new IllegalArgumentException("Faction does not exist: " + expectedFactionId));
+        if (faction.status() != FactionStatus.ACTIVE) {
+            throw new IllegalArgumentException("Cannot plan a building for an inactive faction");
+        }
+
+        final BlueprintDefinition definition = BlueprintCatalog.find(blueprintId)
+                .orElseThrow(() -> new IllegalArgumentException("Unknown blueprint: " + blueprintId));
+        if (!definition.allowsRotation(rotationDegrees)) {
+            throw new IllegalArgumentException("Blueprint " + blueprintId
+                    + " does not allow rotation " + rotationDegrees);
+        }
+
+        final BuildingRecord candidate = BuildingRecord.planned(definition, expectedFactionId,
+                settlementId, level.dimension().location(), origin, rotationDegrees, gameTime);
+        final BlueprintTemplate template = BlueprintTemplate.load(level.getServer().getResourceManager(), definition);
+        final Validation validation = validateRange(level, candidate, definition, template,
+                0, template.blocks().size(), true);
+        if (validation.status() == ValidationStatus.WAITING_FOR_CHUNKS) {
+            throw new IllegalArgumentException("Placement precheck requires all target and support chunks "
+                    + "to be already loaded; no chunks were force-loaded and no building record was created");
+        }
+        if (validation.status() == ValidationStatus.CONFLICT) {
+            throw new IllegalArgumentException("Placement precheck rejected the site before creating a building record: "
+                    + validation.reason());
+        }
+
+        // CivilizationService performs the authoritative logical checks again (including recorded
+        // footprint overlap and M1-002 headquarters uniqueness) before persisting the record.
+        final BuildingRecord planned = service.planBuilding(settlementId, blueprintId,
+                level.dimension().location(), origin, rotationDegrees, gameTime);
+        return new PlanResult(planned, template.blocks().size(), template.checksum());
     }
 
     public static StartResult beginPlacement(final ServerLevel level, final UUID buildingId) {
@@ -229,32 +298,25 @@ public final class BuildingPlacementService {
         }
         final int minY = level.getMinBuildHeight();
         final int maxY = minY + level.getHeight();
-        final WorldBorder border = level.getWorldBorder();
-        for (int index = startInclusive; index < endExclusive; index++) {
-            final BlueprintTemplate.TemplateBlock entry = template.blocks().get(index);
-            final BlockPos target = worldPosition(building, definition, entry.position());
-            if (target.getY() < minY || target.getY() >= maxY) {
-                return Validation.conflict("Template exceeds build height at " + target);
-            }
-            if (!border.isWithinBounds(target.getX() + 0.5D, target.getZ() + 0.5D)) {
-                return Validation.conflict("Template exceeds the world border at " + target);
-            }
-            if (!level.hasChunkAt(target)) {
-                return Validation.waiting();
-            }
-            final BlockState existing = level.getBlockState(target);
-            final BlockState desired = resolveBlockState(entry.blockId());
-            if (!existing.equals(desired) && !canReplace(level, target, existing, definition)) {
-                return Validation.conflict("Protected or non-replaceable block at " + target + " (" + existing + ")");
-            }
+        final long minStructureY = building.origin().getY();
+        final long maxStructureY = minStructureY + definition.sizeY();
+        if (minStructureY < minY || maxStructureY > maxY) {
+            return Validation.conflict("Blueprint volume exceeds build height: originY="
+                    + minStructureY + ", height=" + definition.sizeY()
+                    + ", allowed=" + minY + ".." + (maxY - 1));
         }
 
-        if (validateGround && definition.requireSolidGround()) {
-            final int footprintX = definition.rotatedSizeX(building.rotationDegrees());
-            final int footprintZ = definition.rotatedSizeZ(building.rotationDegrees());
-            for (int x = 0; x < footprintX; x++) {
-                for (int z = 0; z < footprintZ; z++) {
-                    final BlockPos support = building.origin().offset(x, -1, z);
+        final WorldBorder border = level.getWorldBorder();
+        final int footprintX = definition.rotatedSizeX(building.rotationDegrees());
+        final int footprintZ = definition.rotatedSizeZ(building.rotationDegrees());
+        for (int x = 0; x < footprintX; x++) {
+            for (int z = 0; z < footprintZ; z++) {
+                final BlockPos footprintCell = building.origin().offset(x, 0, z);
+                if (!border.isWithinBounds(footprintCell.getX() + 0.5D, footprintCell.getZ() + 0.5D)) {
+                    return Validation.conflict("Blueprint footprint exceeds the world border at " + footprintCell);
+                }
+                if (validateGround && definition.requireSolidGround()) {
+                    final BlockPos support = footprintCell.below();
                     if (!level.hasChunkAt(support)) {
                         return Validation.waiting();
                     }
@@ -262,6 +324,19 @@ public final class BuildingPlacementService {
                         return Validation.conflict("Solid ground is required under the entire footprint; unsupported at " + support);
                     }
                 }
+            }
+        }
+
+        for (int index = startInclusive; index < endExclusive; index++) {
+            final BlueprintTemplate.TemplateBlock entry = template.blocks().get(index);
+            final BlockPos target = worldPosition(building, definition, entry.position());
+            if (!level.hasChunkAt(target)) {
+                return Validation.waiting();
+            }
+            final BlockState existing = level.getBlockState(target);
+            final BlockState desired = resolveBlockState(entry.blockId());
+            if (!existing.equals(desired) && !canReplace(level, target, existing, definition)) {
+                return Validation.conflict("Protected or non-replaceable block at " + target + " (" + existing + ")");
             }
         }
         return Validation.ready();
@@ -344,6 +419,9 @@ public final class BuildingPlacementService {
         service.updateBuildingPlacement(repair);
         MinecraftEmpires.LOGGER.warn("Building placement paused for repair: building={}, cursor={}, reason={}",
                 building.id(), cursor, reason);
+    }
+
+    public record PlanResult(BuildingRecord building, int totalBlocks, String templateChecksum) {
     }
 
     public record StartResult(BuildingRecord building, int totalBlocks) {
