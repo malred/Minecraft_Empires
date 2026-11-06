@@ -195,6 +195,16 @@ public final class WorldDataValidator {
                         + " references unknown blueprint " + building.blueprintId() + "."));
                 continue;
             }
+            if (building.state() == BuildingState.PLANNED && !building.reservedMaterials().isEmpty()) {
+                issues.add(new Issue(Severity.ERROR, "PLANNED building " + building.id()
+                        + " contains reserved materials before its reservation transaction."));
+            }
+            if (building.state() == BuildingState.RESERVED
+                    && !building.reservedMaterials().asMap().equals(blueprint.materials().asMap())) {
+                issues.add(new Issue(Severity.ERROR, "RESERVED building " + building.id()
+                        + " escrow does not match the full blueprint material cost; expected="
+                        + blueprint.materials().asMap() + ", actual=" + building.reservedMaterials().asMap() + "."));
+            }
             if (blueprint.category() == dev.minecraftempires.common.building.BuildingCategory.HEADQUARTERS
                     && building.state() != BuildingState.DEMOLISHED) {
                 final UUID previousHeadquarters = headquartersByFaction.putIfAbsent(
