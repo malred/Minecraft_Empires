@@ -101,6 +101,9 @@ public final class BuildingPlacementCommands {
                             + ", state=" + building.state()
                             + ", worldSync=" + building.worldSyncState()
                             + ", cursor=" + building.placementCursor() + "/" + template.blocks().size()
+                            + ", originChunk=(" + (building.origin().getX() >> 4) + ","
+                            + (building.origin().getZ() >> 4) + ")"
+                            + ", originChunkLoaded=" + source.getLevel().hasChunkAt(building.origin())
                             + ", templateChecksum=" + template.checksum()), false);
             return 1;
         } catch (IllegalArgumentException | IllegalStateException exception) {
