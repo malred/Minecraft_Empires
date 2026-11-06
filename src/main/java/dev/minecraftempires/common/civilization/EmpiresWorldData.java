@@ -245,7 +245,8 @@ public final class EmpiresWorldData extends SavedData {
                 || currentFaction.status() != updatedFaction.status()
                 || !java.util.Objects.equals(currentFaction.capitalSettlementId(), updatedFaction.capitalSettlementId())
                 || currentFaction.populationCountCache() != updatedFaction.populationCountCache()
-                || currentFaction.createdAtGameTime() != updatedFaction.createdAtGameTime()) {
+                || currentFaction.createdAtGameTime() != updatedFaction.createdAtGameTime()
+                || currentFaction.schemaVersion() != updatedFaction.schemaVersion()) {
             throw new IllegalArgumentException("Material reservation cannot change unrelated faction fields");
         }
         if (!currentBuilding.reservedMaterials().isEmpty()) {
@@ -260,7 +261,12 @@ public final class EmpiresWorldData extends SavedData {
                 || currentBuilding.placementCursor() != reservedBuilding.placementCursor()
                 || currentBuilding.worldSyncState() != reservedBuilding.worldSyncState()
                 || currentBuilding.constructionProgress() != reservedBuilding.constructionProgress()
-                || currentBuilding.workPointsRequired() != reservedBuilding.workPointsRequired()) {
+                || currentBuilding.workPointsRequired() != reservedBuilding.workPointsRequired()
+                || currentBuilding.durability() != reservedBuilding.durability()
+                || currentBuilding.createdAtGameTime() != reservedBuilding.createdAtGameTime()
+                || currentBuilding.schemaVersion() != reservedBuilding.schemaVersion()
+                || !currentBuilding.templateChecksum().equals(reservedBuilding.templateChecksum())
+                || !currentBuilding.templateChecksum().equals(blueprint.templateChecksum())) {
             throw new IllegalArgumentException("Reservation cannot change the building identity or placement: "
                     + reservedBuilding.id());
         }
