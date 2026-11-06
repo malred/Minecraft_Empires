@@ -67,6 +67,11 @@ public final class BuildingCommands {
                                                 ResourceLocationArgument.getId(context, "blueprint"),
                                                 IntegerArgumentType.getInteger(context, "rotation")))))));
 
+        debug.then(Commands.literal("reserve-building-materials")
+                .then(Commands.argument("building", StringArgumentType.word())
+                        .executes(context -> reserveBuildingMaterials(
+                                context.getSource(), StringArgumentType.getString(context, "building")))));
+
         debug.then(Commands.literal("list-buildings")
                 .then(Commands.argument("settlement", StringArgumentType.word())
                         .executes(context -> listBuildings(context.getSource(),
@@ -109,6 +114,29 @@ public final class BuildingCommands {
                             + " | templateChecksum=" + result.templateChecksum()
                             + " | worldSync=" + building.worldSyncState()
                             + " | No blocks placed and no resources deducted."), true);
+            return 1;
+        } catch (IllegalArgumentException | IllegalStateException exception) {
+            source.sendFailure(Component.literal(exception.getMessage()));
+            return 0;
+        }
+    }
+
+    private static int reserveBuildingMaterials(
+            final CommandSourceStack source,
+            final String buildingText
+    ) {
+        try {
+            final UUID buildingId = UUID.fromString(buildingText);
+            final CivilizationService service = CivilizationService.forLevel(source.getLevel());
+            final BuildingRecord building = service.reserveBuildingMaterials(buildingId);
+            final var faction = service.findFaction(building.ownerFactionId()).orElseThrow();
+            source.sendSuccess(() -> Component.literal(
+                    "Material reservation " + building.state()
+                            + " | building=" + building.id()
+                            + " | faction=" + building.ownerFactionId()
+                            + " | available=" + faction.resources().asMap()
+                            + " | escrow=" + building.reservedMaterials().asMap()
+                            + " | Retry-safe by building UUID."), true);
             return 1;
         } catch (IllegalArgumentException | IllegalStateException exception) {
             source.sendFailure(Component.literal(exception.getMessage()));
