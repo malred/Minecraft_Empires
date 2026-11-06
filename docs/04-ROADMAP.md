@@ -60,7 +60,7 @@ flowchart TD
 - M1-005 ConstructionProject 状态机。（**PASS**：用户本地 38/38 required Forge GameTests 通过；「新的世界2」原存档 worldId/schema=3/readOnly=false 保持不变，status 正常，validate PASS，2 个建筑、0 errors/0 warnings。日志片段未包含 Gradle 最终 BUILD SUCCESSFUL 行；Dedicated Server/真实多人测试仍待执行）
 - M1-006 Builder Job。（**PASS**：用户本地 47/47 required Forge GameTests 通过；「新的世界2」schema 3→4 迁移成功，worldId 不变、schema=4、readOnly=false，factions=1、settlements=2、citizens=3、buildings=2；Validator PASS，0 errors/0 warnings。任务列表为空，与当前没有 UNDER_CONSTRUCTION 项目相符。日志片段未显示 Gradle 最终 BUILD SUCCESSFUL 摘要；Dedicated Server/真实多人测试仍待执行。）
 - M1-007 分批方块施工。**PASS（用户本地 GameTests + 真实客户端验收，2026-11-06）**：施工工作点映射模板前缀，placement cursor 独立持久化；每 tick 限预算且只写已加载区块；完成同步后激活，冲突可恢复。用户在 `c51a3aa` 提供 51/51 GameTests 通过日志；真实客户端确认目标 Chunk `originChunkLoaded=true → false → true`，游标保持 `6/25`，恢复施工后最终 `ACTIVE/SYNCED`、`25/25`。该轮没有独立的 `gradlew.bat build` 最终摘要；Dedicated Server/多人仍待执行。
-- M1-008A 建筑取消与 escrow 退款（**GameTests 55/55 PASS；真实客户端 RESERVED 取消/全额退款/重复取消幂等 PASS，2026-11-06**。UNDER_CONSTRUCTION 部分退款、已放置方块保留与 PENDING 停止仍待客户端验收）。
+- M1-008A 建筑取消与 escrow 退款（**GameTests 55/55 PASS；真实客户端 RESERVED 全额退款/重复取消幂等，以及 UNDER_CONSTRUCTION 50% 部分施工取消/剩余 escrow 退款/PENDING 游标停止 PASS，2026-11-06**。已分配工人的释放尚未实测；本轮没有独立逐块目视检查日志，Dedicated Server/多人仍待执行）。
 - M1-008B Builder Job 取消联动与工人释放（取消事务已覆盖基础联动；后续补充任务级边界测试）。
 - M1-008C 建筑耐久、损坏与修复材料生命周期。
 - M1-008D 保存/恢复、兼容性与 M1 集成回归。
