@@ -10,5 +10,6 @@ public enum BuildingState {
     REPAIRING,
     RUINED,
     DEMOLISHED,
+    CANCELLED,
     NEEDS_REPAIR
 }
