@@ -386,6 +386,67 @@ public final class M1ConstructionGameTests {
             template = "gametest_empty_5x5x5",
             templateNamespace = "empires",
             batch = "empires.m1_007",
+            timeoutTicks = 40
+    )
+    public static void stagedPlacementResumesFromSavedCursorAfterSavedDataReload(final GameTestHelper helper) {
+        final ServerLevel level = helper.getLevel();
+        final Fixture fixture = createFixture(helper, "M1-007 Cursor Reload", false);
+        final BuildingRecord started = fixture.service().startConstruction(
+                fixture.building().id(), level.getGameTime());
+        final BlueprintTemplate template = BlueprintTemplate.load(
+                level.getServer().getResourceManager(), fixture.blueprint());
+        setWarehouseGround(level, started.origin());
+        fixture.service().applyConstructionWork(started.id(), 0L, 50L);
+
+        BuildingPlacementService.processPending(level.getServer(), fixture.data(), fixture.service());
+        final BuildingRecord beforeReload = fixture.service().findBuilding(started.id()).orElseThrow();
+        final int savedCursor = beforeReload.placementCursor();
+        helper.assertTrue(savedCursor > 0 && savedCursor <= 12
+                        && beforeReload.constructionProgress() == 50L
+                        && beforeReload.worldSyncState() == WorldSyncState.PENDING,
+                "The first construction batch must persist a partial cursor within the 50% work target");
+        assertTemplatePrefix(helper, level, beforeReload, template, savedCursor);
+
+        // Recreate the authoritative store and application service from the serialized SavedData.
+        final EmpiresWorldData restoredData = EmpiresWorldData.load(fixture.data().save(new CompoundTag()));
+        final CivilizationService restoredService = new CivilizationService(
+                new SavedDataCivilizationRepository(restoredData));
+        final Fixture restoredFixture = new Fixture(
+                restoredData, restoredService, fixture.faction(), fixture.blueprint(), fixture.building());
+        final BuildingRecord restoredBuilding = restoredService.findBuilding(started.id()).orElseThrow();
+        helper.assertTrue(restoredBuilding.placementCursor() == savedCursor
+                        && restoredBuilding.constructionProgress() == 50L
+                        && restoredBuilding.worldSyncState() == WorldSyncState.PENDING,
+                "SavedData reload must preserve construction progress and placement cursor");
+        helper.assertTrue(restoredData.builderJobsForBuilding(started.id()).size() == 1
+                        && restoredData.builderJobsForBuilding(started.id()).get(0).state() == BuilderJobState.AVAILABLE,
+                "SavedData reload must preserve the active construction's Builder Job");
+
+        BuildingRecord current = processPlacementToCursor(
+                helper, level, restoredFixture, 12, template.blocks().size() + 2);
+        helper.assertTrue(current.placementCursor() == 12
+                        && current.constructionProgress() == 50L
+                        && current.state() == BuildingState.UNDER_CONSTRUCTION,
+                "Placement after SavedData reload must continue from the saved cursor, not restart");
+        assertTemplatePrefix(helper, level, current, template, 12);
+
+        restoredService.applyConstructionWork(started.id(), 50L, 50L);
+        current = processPlacementToCursor(
+                helper, level, restoredFixture, 25, template.blocks().size() + 2);
+        final BuildingRecord active = restoredService.findBuilding(started.id()).orElseThrow();
+        helper.assertTrue(current.placementCursor() == 25
+                        && active.state() == BuildingState.ACTIVE
+                        && active.worldSyncState() == WorldSyncState.SYNCED
+                        && active.constructionProgress() == 100L,
+                "Reloaded construction must finish all template blocks and activate normally");
+        assertTemplatePrefix(helper, level, active, template, 25);
+        helper.succeed();
+    }
+
+    @GameTest(
+            template = "gametest_empty_5x5x5",
+            templateNamespace = "empires",
+            batch = "empires.m1_007",
             timeoutTicks = 20
     )
     public static void pendingConstructionDoesNotForceLoadRemoteChunks(final GameTestHelper helper) {
@@ -393,7 +454,7 @@ public final class M1ConstructionGameTests {
         final EmpiresWorldData data = new EmpiresWorldData();
         final CivilizationService service = new CivilizationService(new SavedDataCivilizationRepository(data));
         final FactionRecord faction = service.createFaction(
-                "M1-007 Unloaded Chunk", new ResourceLocation("empires", "bearfolk"), ControllerType.AI,
+                "M1-007 Unloaded Chunk", ResourceLocation.fromNamespaceAndPath("empires", "bearfolk"), ControllerType.AI,
                 level.getGameTime());
         final BlockPos remoteOrigin = new BlockPos(4096, 64, 4096);
         final SettlementRecord settlement = service.createSettlement(
@@ -490,7 +551,7 @@ public final class M1ConstructionGameTests {
         final EmpiresWorldData data = new EmpiresWorldData();
         final CivilizationService service = new CivilizationService(new SavedDataCivilizationRepository(data));
         final FactionRecord faction = service.createFaction(
-                factionName, new ResourceLocation("empires", "bearfolk"), ControllerType.AI, level.getGameTime());
+                factionName, ResourceLocation.fromNamespaceAndPath("empires", "bearfolk"), ControllerType.AI, level.getGameTime());
         final BlockPos origin = helper.absolutePos(new BlockPos(1, 1, 1));
         final SettlementRecord settlement = service.createSettlement(
                 faction.id(), level.dimension().location(), origin, level.getGameTime());
@@ -511,7 +572,7 @@ public final class M1ConstructionGameTests {
         final EmpiresWorldData data = new EmpiresWorldData();
         final CivilizationService service = new CivilizationService(new SavedDataCivilizationRepository(data));
         final FactionRecord faction = service.createFaction(
-                factionName, new ResourceLocation("empires", "bearfolk"), ControllerType.AI, level.getGameTime());
+                factionName, ResourceLocation.fromNamespaceAndPath("empires", "bearfolk"), ControllerType.AI, level.getGameTime());
         final BlockPos origin = helper.absolutePos(new BlockPos(1, 1, 1));
         final SettlementRecord settlement = service.createSettlement(
                 faction.id(), level.dimension().location(), origin, level.getGameTime());
