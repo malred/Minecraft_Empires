@@ -293,6 +293,107 @@ public final class EmpiresWorldData extends SavedData {
         }
     }
 
+    void putBuildingCancellation(
+            final FactionRecord expectedFaction,
+            final FactionRecord updatedFaction,
+            final BuildingRecord expectedBuilding,
+            final BuildingRecord cancelledBuilding,
+            final BuilderJobRecord expectedJob,
+            final BuilderJobRecord cancelledJob
+    ) {
+        ensureWritable();
+        final BuildingRecord currentBuilding = buildings.get(expectedBuilding.id());
+        if (currentBuilding == null || !sameConstructionSnapshot(currentBuilding, expectedBuilding)) {
+            throw new IllegalStateException("Building changed before cancellation; reload its latest state: "
+                    + expectedBuilding.id());
+        }
+        if (currentBuilding.state() != dev.minecraftempires.common.building.BuildingState.PLANNED
+                && currentBuilding.state() != dev.minecraftempires.common.building.BuildingState.RESERVED
+                && currentBuilding.state() != dev.minecraftempires.common.building.BuildingState.UNDER_CONSTRUCTION) {
+            throw new IllegalStateException("Building cannot be cancelled from state " + currentBuilding.state());
+        }
+        if (!sameBuildingIdentity(currentBuilding, cancelledBuilding)
+                || cancelledBuilding.state() != dev.minecraftempires.common.building.BuildingState.CANCELLED
+                || !cancelledBuilding.reservedMaterials().isEmpty()
+                || cancelledBuilding.constructionProgress() != currentBuilding.constructionProgress()
+                || cancelledBuilding.worldSyncState() != currentBuilding.worldSyncState()) {
+            throw new IllegalArgumentException("Cancellation must preserve building progress/placement and clear escrow");
+        }
+
+        final FactionRecord currentFaction = factions.get(currentBuilding.ownerFactionId());
+        if (currentFaction == null || currentFaction != expectedFaction
+                || !currentFaction.id().equals(updatedFaction.id())) {
+            throw new IllegalStateException("Faction inventory changed before building cancellation");
+        }
+        final ResourceLedger expectedRefunded = currentFaction.resources().plus(currentBuilding.reservedMaterials());
+        if (!updatedFaction.resources().asMap().equals(expectedRefunded.asMap())
+                || !currentFaction.displayName().equals(updatedFaction.displayName())
+                || !currentFaction.speciesId().equals(updatedFaction.speciesId())
+                || currentFaction.controllerType() != updatedFaction.controllerType()
+                || currentFaction.status() != updatedFaction.status()
+                || !java.util.Objects.equals(currentFaction.capitalSettlementId(), updatedFaction.capitalSettlementId())
+                || currentFaction.populationCountCache() != updatedFaction.populationCountCache()
+                || currentFaction.createdAtGameTime() != updatedFaction.createdAtGameTime()
+                || currentFaction.schemaVersion() != updatedFaction.schemaVersion()) {
+            throw new IllegalArgumentException("Cancellation refund must equal the exact escrow credit and change no other faction fields");
+        }
+
+        final BlueprintDefinition blueprint = BlueprintCatalog.find(currentBuilding.blueprintId())
+                .orElseThrow(() -> new IllegalStateException("Cancellation references unknown blueprint: "
+                        + currentBuilding.blueprintId()));
+        if (currentBuilding.state() == dev.minecraftempires.common.building.BuildingState.PLANNED) {
+            if (!currentBuilding.reservedMaterials().isEmpty()
+                    || currentBuilding.constructionProgress() != 0L) {
+                throw new IllegalStateException("PLANNED building cannot contain escrow or construction progress");
+            }
+        } else if (currentBuilding.state() == dev.minecraftempires.common.building.BuildingState.RESERVED) {
+            if (!currentBuilding.reservedMaterials().asMap().equals(blueprint.materials().asMap())
+                    || currentBuilding.constructionProgress() != 0L) {
+                throw new IllegalStateException("RESERVED building escrow does not match its full blueprint cost");
+            }
+        } else {
+            final ResourceLedger expectedEscrow = ConstructionProject.remainingEscrow(
+                    blueprint.materials(), currentBuilding.constructionProgress(), currentBuilding.workPointsRequired());
+            if (!currentBuilding.reservedMaterials().asMap().equals(expectedEscrow.asMap())) {
+                throw new IllegalStateException("Construction escrow does not match persisted progress");
+            }
+        }
+
+        final List<BuilderJobRecord> activeJobs = builderJobs.values().stream()
+                .filter(job -> job.buildingId().equals(currentBuilding.id()) && job.isActive()).toList();
+        if (currentBuilding.state() == dev.minecraftempires.common.building.BuildingState.UNDER_CONSTRUCTION) {
+            final BuilderJobRecord currentJob = expectedJob == null ? null : builderJobs.get(expectedJob.id());
+            if (activeJobs.size() != 1 || currentJob == null || !currentJob.sameSnapshot(expectedJob)
+                    || cancelledJob == null
+                    || !cancelledJob.id().equals(currentJob.id())
+                    || cancelledJob.state() != BuilderJobState.CANCELLED
+                    || cancelledJob.assignedCitizenId() != null
+                    || cancelledJob.retryCount() != currentJob.retryCount()
+                    || cancelledJob.updatedAtGameTime() < currentJob.updatedAtGameTime()) {
+                throw new IllegalStateException("Cancellation must atomically cancel the building's one active builder job");
+            }
+            if (!isAllowedBuilderJobTransition(currentJob.state(), cancelledJob.state())) {
+                throw new IllegalStateException("Invalid builder job cancellation transition");
+            }
+        } else if (!activeJobs.isEmpty() || expectedJob != null || cancelledJob != null) {
+            throw new IllegalStateException("A pre-construction building cannot have an active builder job");
+        }
+
+        final SettlementRecord settlement = settlements.get(currentBuilding.settlementId());
+        if (settlement == null || !settlement.ownerFactionId().equals(currentBuilding.ownerFactionId())) {
+            throw new IllegalStateException("Cancellation building has an invalid owning settlement");
+        }
+
+        // Publish inventory refund, terminal building state and worker release as one SavedData mutation.
+        factions.put(updatedFaction.id(), updatedFaction);
+        buildings.put(cancelledBuilding.id(), cancelledBuilding);
+        settlements.put(settlement.id(), settlement.withBuildingId(cancelledBuilding.id()));
+        if (cancelledJob != null) {
+            builderJobs.put(cancelledJob.id(), cancelledJob);
+        }
+        setDirty();
+    }
+
     private static boolean isAllowedBuilderJobTransition(
             final BuilderJobState from,
             final BuilderJobState to
@@ -301,15 +402,18 @@ public final class EmpiresWorldData extends SavedData {
             return true;
         }
         return switch (from) {
-            case AVAILABLE -> to == BuilderJobState.CLAIMED || to == BuilderJobState.COMPLETED;
+            case AVAILABLE -> to == BuilderJobState.CLAIMED || to == BuilderJobState.COMPLETED
+                    || to == BuilderJobState.CANCELLED;
             case CLAIMED -> to == BuilderJobState.TRAVELLING || to == BuilderJobState.WORKING
                     || to == BuilderJobState.AVAILABLE || to == BuilderJobState.BLOCKED
-                    || to == BuilderJobState.COMPLETED;
+                    || to == BuilderJobState.COMPLETED || to == BuilderJobState.CANCELLED;
             case TRAVELLING -> to == BuilderJobState.WORKING || to == BuilderJobState.AVAILABLE
-                    || to == BuilderJobState.BLOCKED || to == BuilderJobState.COMPLETED;
+                    || to == BuilderJobState.BLOCKED || to == BuilderJobState.COMPLETED
+                    || to == BuilderJobState.CANCELLED;
             case WORKING -> to == BuilderJobState.AVAILABLE || to == BuilderJobState.BLOCKED
-                    || to == BuilderJobState.COMPLETED;
-            case BLOCKED -> to == BuilderJobState.AVAILABLE || to == BuilderJobState.COMPLETED;
+                    || to == BuilderJobState.COMPLETED || to == BuilderJobState.CANCELLED;
+            case BLOCKED -> to == BuilderJobState.AVAILABLE || to == BuilderJobState.COMPLETED
+                    || to == BuilderJobState.CANCELLED;
             case COMPLETED, FAILED, CANCELLED -> false;
         };
     }
