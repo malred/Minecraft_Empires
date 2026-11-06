@@ -294,6 +294,129 @@ public final class M0IntegrationGameTests {
         helper.succeed();
     }
 
+    @GameTest(
+            template = "gametest_empty_5x5x5",
+            templateNamespace = "empires",
+            batch = "empires.m1_002",
+            timeoutTicks = 20
+    )
+    public static void factionCannotPlanDuplicateHeadquarters(final GameTestHelper helper) {
+        final EmpiresWorldData data = new EmpiresWorldData();
+        final CivilizationService service = new CivilizationService(new SavedDataCivilizationRepository(data));
+        final FactionRecord faction = service.createFaction(
+                "M1 HQ Unique", TEST_SPECIES, ControllerType.AI, 0L);
+        final SettlementRecord settlement = service.createSettlement(
+                faction.id(), OVERWORLD, BlockPos.ZERO, 0L);
+        service.planBuilding(settlement.id(), BlueprintCatalog.HEADQUARTERS_HALL_ID,
+                OVERWORLD, new BlockPos(10, 64, 10), 0, 0L);
+
+        boolean duplicateRejected = false;
+        try {
+            service.planBuilding(settlement.id(), BlueprintCatalog.HEADQUARTERS_HALL_ID,
+                    OVERWORLD, new BlockPos(30, 64, 30), 0, 1L);
+        } catch (IllegalArgumentException expected) {
+            duplicateRejected = expected.getMessage().contains("already has a non-demolished headquarters");
+        }
+        helper.assertTrue(duplicateRejected,
+                "A faction must not be allowed to plan a second non-demolished headquarters");
+        helper.assertTrue(service.buildings().size() == 1,
+                "Rejected duplicate headquarters planning must not persist a second record");
+        helper.succeed();
+    }
+
+    @GameTest(
+            template = "gametest_empty_5x5x5",
+            templateNamespace = "empires",
+            batch = "empires.m1_002",
+            timeoutTicks = 20
+    )
+    public static void differentFactionsCanEachPlanHeadquarters(final GameTestHelper helper) {
+        final EmpiresWorldData data = new EmpiresWorldData();
+        final CivilizationService service = new CivilizationService(new SavedDataCivilizationRepository(data));
+        final FactionRecord firstFaction = service.createFaction(
+                "M1 HQ Faction A", TEST_SPECIES, ControllerType.AI, 0L);
+        final FactionRecord secondFaction = service.createFaction(
+                "M1 HQ Faction B", TEST_SPECIES, ControllerType.AI, 0L);
+        final SettlementRecord firstSettlement = service.createSettlement(
+                firstFaction.id(), OVERWORLD, BlockPos.ZERO, 0L);
+        final SettlementRecord secondSettlement = service.createSettlement(
+                secondFaction.id(), OVERWORLD, BlockPos.ZERO, 0L);
+
+        service.planBuilding(firstSettlement.id(), BlueprintCatalog.HEADQUARTERS_HALL_ID,
+                OVERWORLD, new BlockPos(10, 64, 10), 0, 0L);
+        service.planBuilding(secondSettlement.id(), BlueprintCatalog.HEADQUARTERS_HALL_ID,
+                OVERWORLD, new BlockPos(30, 64, 30), 0, 0L);
+
+        helper.assertTrue(service.buildings().size() == 2,
+                "Different factions should be allowed to plan their own headquarters");
+        helper.assertTrue(service.buildings().stream()
+                        .map(BuildingRecord::ownerFactionId).distinct().count() == 2,
+                "Each headquarters should belong to a different faction");
+        helper.succeed();
+    }
+
+    @GameTest(
+            template = "gametest_empty_5x5x5",
+            templateNamespace = "empires",
+            batch = "empires.m1_002",
+            timeoutTicks = 20
+    )
+    public static void capitalSettlementCannotBeSilentlyReassigned(final GameTestHelper helper) {
+        final EmpiresWorldData data = new EmpiresWorldData();
+        final CivilizationService service = new CivilizationService(new SavedDataCivilizationRepository(data));
+        final FactionRecord faction = service.createFaction(
+                "M1 Capital Lock", TEST_SPECIES, ControllerType.AI, 0L);
+        final SettlementRecord first = service.createSettlement(
+                faction.id(), OVERWORLD, BlockPos.ZERO, 0L);
+        final SettlementRecord second = service.createSettlement(
+                faction.id(), OVERWORLD, new BlockPos(100, 64, 100), 0L);
+        service.setCapitalSettlement(faction.id(), first.id());
+        service.setCapitalSettlement(faction.id(), first.id());
+
+        boolean reassignmentRejected = false;
+        try {
+            service.setCapitalSettlement(faction.id(), second.id());
+        } catch (IllegalStateException expected) {
+            reassignmentRejected = true;
+        }
+        helper.assertTrue(reassignmentRejected,
+                "Capital settlement must not be silently reassigned to another settlement");
+        helper.assertTrue(service.findFaction(faction.id()).orElseThrow()
+                        .capitalSettlementId().equals(first.id()),
+                "Rejected capital reassignment must preserve the original capital");
+        helper.succeed();
+    }
+
+    @GameTest(
+            template = "gametest_empty_5x5x5",
+            templateNamespace = "empires",
+            batch = "empires.m1_002",
+            timeoutTicks = 20
+    )
+    public static void validatorDetectsDuplicateFactionHeadquarters(final GameTestHelper helper) {
+        final EmpiresWorldData data = new EmpiresWorldData();
+        final CivilizationService service = new CivilizationService(new SavedDataCivilizationRepository(data));
+        final FactionRecord faction = service.createFaction(
+                "M1 HQ Validator", TEST_SPECIES, ControllerType.AI, 0L);
+        final SettlementRecord settlement = service.createSettlement(
+                faction.id(), OVERWORLD, BlockPos.ZERO, 0L);
+        final BlueprintDefinition headquarters = BlueprintCatalog.find(
+                BlueprintCatalog.HEADQUARTERS_HALL_ID).orElseThrow();
+        final BuildingRecord first = BuildingRecord.planned(headquarters, faction.id(), settlement.id(),
+                OVERWORLD, new BlockPos(10, 64, 10), 0, 0L);
+        final BuildingRecord second = BuildingRecord.planned(headquarters, faction.id(), settlement.id(),
+                OVERWORLD, new BlockPos(30, 64, 30), 0, 0L);
+        data.putBuilding(first);
+        data.putBuilding(second);
+
+        final WorldDataValidator.Report report = WorldDataValidator.validate(data);
+        helper.assertTrue(!report.passed(),
+                "World validator must reject multiple non-demolished headquarters for one faction");
+        helper.assertTrue(report.errorCount() == 1,
+                "Expected one duplicate headquarters error, got " + report.errorCount());
+        helper.succeed();
+    }
+
     private static Fixture createFixture(
             final int populationCache,
             final int buildingCount,
