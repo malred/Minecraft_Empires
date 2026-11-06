@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "empires:block/headquarters_core"
+    }
+  }
+}
