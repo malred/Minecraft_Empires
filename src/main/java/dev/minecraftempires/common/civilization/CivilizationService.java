@@ -120,6 +120,14 @@ public final class CivilizationService {
         if (settlement.status() != SettlementStatus.ACTIVE) {
             throw new IllegalArgumentException("Capital settlement must be active");
         }
+        if (faction.capitalSettlementId() != null
+                && !faction.capitalSettlementId().equals(settlementId)) {
+            throw new IllegalStateException("Faction capital is already bound to settlement "
+                    + faction.capitalSettlementId() + "; explicit capital relocation is not supported");
+        }
+        if (settlementId.equals(faction.capitalSettlementId())) {
+            return;
+        }
         repository.saveFaction(faction.withCapitalSettlement(settlementId));
     }
 
@@ -178,6 +186,27 @@ public final class CivilizationService {
                 .orElseThrow(() -> new IllegalArgumentException("Unknown blueprint: " + blueprintId));
         if (!blueprint.allowsRotation(rotationDegrees)) {
             throw new IllegalArgumentException("Blueprint " + blueprintId + " does not allow rotation " + rotationDegrees);
+        }
+        if (blueprint.category() == dev.minecraftempires.common.building.BuildingCategory.HEADQUARTERS) {
+            if (faction.capitalSettlementId() != null
+                    && !faction.capitalSettlementId().equals(settlement.id())) {
+                throw new IllegalArgumentException("Headquarters must be planned in the faction's capital settlement "
+                        + faction.capitalSettlementId());
+            }
+            for (BuildingRecord existing : repository.buildings()) {
+                if (existing.state() == BuildingState.DEMOLISHED
+                        || !existing.ownerFactionId().equals(faction.id())) {
+                    continue;
+                }
+                final BlueprintDefinition existingBlueprint = BlueprintCatalog.find(existing.blueprintId()).orElse(null);
+                if (existingBlueprint != null
+                        && existingBlueprint.category()
+                        == dev.minecraftempires.common.building.BuildingCategory.HEADQUARTERS) {
+                    throw new IllegalArgumentException("Faction " + faction.id()
+                            + " already has a non-demolished headquarters building " + existing.id()
+                            + " (state=" + existing.state() + ")");
+                }
+            }
         }
 
         final int newSizeX = blueprint.rotatedSizeX(rotationDegrees);
