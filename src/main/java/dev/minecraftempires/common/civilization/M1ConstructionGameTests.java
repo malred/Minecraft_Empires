@@ -1,14 +1,20 @@
 package dev.minecraftempires.common.civilization;
 
 import dev.minecraftempires.MinecraftEmpires;
+import dev.minecraftempires.common.EmpiresConfig;
 import dev.minecraftempires.common.building.BlueprintCatalog;
+import dev.minecraftempires.common.building.BlueprintTemplate;
+import dev.minecraftempires.common.building.BuildingPlacementService;
 import dev.minecraftempires.common.building.BlueprintDefinition;
 import dev.minecraftempires.common.building.BuildingRecord;
 import dev.minecraftempires.common.building.ConstructionProject;
 import dev.minecraftempires.common.building.BuildingState;
 import dev.minecraftempires.common.building.WorldSyncState;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
@@ -286,6 +292,194 @@ public final class M1ConstructionGameTests {
         helper.assertTrue(zero == 0 && first <= middle && middle < complete && complete == totalBlocks,
                 "Staged placement must map work progress monotonically to a complete template prefix");
         helper.succeed();
+    }
+
+
+    @GameTest(
+            template = "gametest_empty_5x5x5",
+            templateNamespace = "empires",
+            batch = "empires.m1_007",
+            timeoutTicks = 40
+    )
+    public static void stagedConstructionPlacesRealBlocksAndResumesAfterConflict(final GameTestHelper helper) {
+        final ServerLevel level = helper.getLevel();
+        final Fixture fixture = createFixture(helper, "M1-007 Physical Staging", false);
+        final BuildingRecord started = fixture.service().startConstruction(
+                fixture.building().id(), level.getGameTime());
+        final BlueprintTemplate template = BlueprintTemplate.load(
+                level.getServer().getResourceManager(), fixture.blueprint());
+
+        helper.assertTrue(template.blocks().size() == 25,
+                "Warehouse integration fixture must contain exactly 25 template blocks");
+        setWarehouseGround(level, started.origin());
+
+        // Zero work must not write any structure blocks.
+        final int zeroProgressPlaced = BuildingPlacementService.processPending(
+                level.getServer(), fixture.data(), fixture.service());
+        BuildingRecord current = fixture.service().findBuilding(started.id()).orElseThrow();
+        helper.assertTrue(zeroProgressPlaced == 0 && current.placementCursor() == 0
+                        && current.worldSyncState() == WorldSyncState.PENDING,
+                "A zero-work construction must stay pending at cursor 0");
+        assertTemplatePrefix(helper, level, current, template, 0);
+
+        // Half of 100 work points unlocks floor(50 * 25 / 100) = 12 template blocks.
+        fixture.service().applyConstructionWork(started.id(), 0L, 50L);
+        current = fixture.service().findBuilding(started.id()).orElseThrow();
+        final BlockPos conflictPos = current.origin().offset(template.blocks().get(0).position());
+        level.setBlock(conflictPos, Blocks.BEDROCK.defaultBlockState(), 3);
+
+        final int conflictPlaced = BuildingPlacementService.processPending(
+                level.getServer(), fixture.data(), fixture.service());
+        final BuildingRecord paused = fixture.service().findBuilding(started.id()).orElseThrow();
+        helper.assertTrue(conflictPlaced == 0
+                        && paused.state() == BuildingState.UNDER_CONSTRUCTION
+                        && paused.constructionProgress() == 50L
+                        && paused.placementCursor() == 0
+                        && paused.worldSyncState() == WorldSyncState.NEEDS_REPAIR,
+                "A protected-block conflict must pause placement without losing work or advancing the cursor");
+
+        level.setBlock(conflictPos, Blocks.AIR.defaultBlockState(), 3);
+        BuildingPlacementService.resumePlacement(level, fixture.service(), started.id());
+        final BuildingRecord resumed = fixture.service().findBuilding(started.id()).orElseThrow();
+        helper.assertTrue(resumed.state() == BuildingState.UNDER_CONSTRUCTION
+                        && resumed.constructionProgress() == 50L
+                        && resumed.placementCursor() == 0
+                        && resumed.worldSyncState() == WorldSyncState.PENDING,
+                "Resuming after clearing a conflict must preserve construction progress and cursor");
+
+        current = processPlacementToCursor(helper, level, fixture, 12, template.blocks().size() + 2);
+        helper.assertTrue(current.state() == BuildingState.UNDER_CONSTRUCTION
+                        && current.constructionProgress() == 50L
+                        && current.worldSyncState() == WorldSyncState.PENDING,
+                "Half-complete work must leave a partially placed, non-active building");
+        assertTemplatePrefix(helper, level, current, template, 12);
+
+        fixture.service().applyConstructionWork(started.id(), 50L, 50L);
+        final BuildingRecord fullyWorked = fixture.service().findBuilding(started.id()).orElseThrow();
+        helper.assertTrue(fullyWorked.state() == BuildingState.UNDER_CONSTRUCTION
+                        && fullyWorked.constructionProgress() == 100L
+                        && fullyWorked.reservedMaterials().isEmpty()
+                        && fullyWorked.worldSyncState() == WorldSyncState.PENDING,
+                "Full work alone must not activate a building before all world blocks are synchronized");
+
+        current = processPlacementToCursor(helper, level, fixture, 25, template.blocks().size() + 2);
+        final BuildingRecord active = fixture.service().findBuilding(started.id()).orElseThrow();
+        helper.assertTrue(current.placementCursor() == 25
+                        && active.state() == BuildingState.ACTIVE
+                        && active.constructionProgress() == 100L
+                        && active.reservedMaterials().isEmpty()
+                        && active.worldSyncState() == WorldSyncState.SYNCED,
+                "The final template block must synchronize and atomically activate the completed building");
+        assertTemplatePrefix(helper, level, active, template, 25);
+
+        final var jobs = fixture.data().builderJobsForBuilding(started.id());
+        helper.assertTrue(jobs.size() == 1 && jobs.get(0).state() == BuilderJobState.COMPLETED,
+                "Activating the staged building must complete its one persisted Builder Job");
+        final WorldDataValidator.Report report = WorldDataValidator.validate(fixture.data());
+        helper.assertTrue(report.passed() && report.warningCount() == 0,
+                "The completed staged project must validate cleanly: errors=" + report.errorCount()
+                        + ", warnings=" + report.warningCount());
+        helper.succeed();
+    }
+
+    @GameTest(
+            template = "gametest_empty_5x5x5",
+            templateNamespace = "empires",
+            batch = "empires.m1_007",
+            timeoutTicks = 20
+    )
+    public static void pendingConstructionDoesNotForceLoadRemoteChunks(final GameTestHelper helper) {
+        final ServerLevel level = helper.getLevel();
+        final EmpiresWorldData data = new EmpiresWorldData();
+        final CivilizationService service = new CivilizationService(new SavedDataCivilizationRepository(data));
+        final FactionRecord faction = service.createFaction(
+                "M1-007 Unloaded Chunk", new ResourceLocation("empires", "bearfolk"), ControllerType.AI,
+                level.getGameTime());
+        final BlockPos remoteOrigin = new BlockPos(4096, 64, 4096);
+        final SettlementRecord settlement = service.createSettlement(
+                faction.id(), level.dimension().location(), remoteOrigin, level.getGameTime());
+        final BlueprintDefinition blueprint = BlueprintCatalog.find(BlueprintCatalog.WAREHOUSE_PROTOTYPE_ID)
+                .orElseThrow();
+        service.setResources(faction.id(), blueprint.materials());
+        final BuildingRecord planned = service.planBuilding(settlement.id(), blueprint.id(),
+                level.dimension().location(), remoteOrigin, 0, level.getGameTime());
+        final BuildingRecord reserved = service.reserveBuildingMaterials(planned.id());
+        service.startConstruction(reserved.id(), level.getGameTime());
+        service.applyConstructionWork(planned.id(), 0L, 50L);
+
+        final BlockPos remoteSupport = remoteOrigin.below();
+        final boolean initiallyUnloaded = !level.hasChunkAt(remoteSupport);
+        final int placed = BuildingPlacementService.processPending(level.getServer(), data, service);
+        final BuildingRecord waiting = service.findBuilding(planned.id()).orElseThrow();
+
+        helper.assertTrue(initiallyUnloaded,
+                "Remote-chunk fixture must begin outside the currently loaded test area");
+        helper.assertTrue(placed == 0 && !level.hasChunkAt(remoteSupport)
+                        && waiting.state() == BuildingState.UNDER_CONSTRUCTION
+                        && waiting.constructionProgress() == 50L
+                        && waiting.placementCursor() == 0
+                        && waiting.worldSyncState() == WorldSyncState.PENDING,
+                "Pending construction must pause without force-loading an unloaded target chunk");
+        helper.succeed();
+    }
+
+    private static void setWarehouseGround(final ServerLevel level, final BlockPos origin) {
+        for (int x = 0; x < 3; x++) {
+            for (int z = 0; z < 3; z++) {
+                level.setBlock(origin.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 3);
+            }
+        }
+    }
+
+    private static BuildingRecord processPlacementToCursor(
+            final GameTestHelper helper,
+            final ServerLevel level,
+            final Fixture fixture,
+            final int targetCursor,
+            final int maxCalls
+    ) {
+        BuildingRecord current = fixture.service().findBuilding(fixture.building().id()).orElseThrow();
+        int processCalls = 0;
+        while (current.placementCursor() < targetCursor && processCalls < maxCalls) {
+            final int previousCursor = current.placementCursor();
+            final int advanced = BuildingPlacementService.processPending(
+                    level.getServer(), fixture.data(), fixture.service());
+            current = fixture.service().findBuilding(fixture.building().id()).orElseThrow();
+            final int cursorDelta = current.placementCursor() - previousCursor;
+            helper.assertTrue(cursorDelta >= 0 && cursorDelta == advanced
+                            && advanced <= EmpiresConfig.BUILDING_PLACEMENT_BLOCKS_PER_TICK.get(),
+                    "Each placement batch must advance only the persisted cursor and respect its block budget");
+            helper.assertTrue(current.placementCursor() <= targetCursor,
+                    "Placement must never exceed the block prefix unlocked by construction progress");
+            processCalls++;
+        }
+        helper.assertTrue(current.placementCursor() == targetCursor,
+                "Placement did not reach expected cursor " + targetCursor + "; actual="
+                        + current.placementCursor() + ", calls=" + processCalls);
+        return current;
+    }
+
+    private static void assertTemplatePrefix(
+            final GameTestHelper helper,
+            final ServerLevel level,
+            final BuildingRecord building,
+            final BlueprintTemplate template,
+            final int expectedCursor
+    ) {
+        for (int index = 0; index < template.blocks().size(); index++) {
+            final BlueprintTemplate.TemplateBlock entry = template.blocks().get(index);
+            final BlockPos target = building.origin().offset(entry.position());
+            if (index < expectedCursor) {
+                final var expectedState = BuiltInRegistries.BLOCK.getOptional(entry.blockId())
+                        .orElseThrow(() -> new IllegalStateException("Unknown template block " + entry.blockId()))
+                        .defaultBlockState();
+                helper.assertTrue(level.getBlockState(target).equals(expectedState),
+                        "Expected template block " + entry.blockId() + " at " + target + " (index " + index + ")");
+            } else {
+                helper.assertTrue(level.getBlockState(target).isAir(),
+                        "Template block after cursor must remain absent at " + target + " (index " + index + ")");
+            }
+        }
     }
 
     private static Fixture createUnreservedFixture(

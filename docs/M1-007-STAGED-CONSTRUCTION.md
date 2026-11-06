@@ -64,8 +64,28 @@ M1-006 尚未提供居民工作 tick/寻路，因此当前工作点仍由 OP 调
 
 ## GameTests
 
-新增 M1-007 测试覆盖工作点到方块数量的确定性映射、单调性、零进度不放置及满进度到达完整模板。用户于 2026-11-06 在提交 `632101a` 本地运行 `gradlew.bat build`，结果 `BUILD SUCCESSFUL`；Forge GameTests 为 **48/48 required tests passed**。同一版本客户端成功加载旧存档 schema 4，worldId 不变、readOnly=false，世界校验 PASS（0 errors/0 warnings）。
+M1-007 的测试现在覆盖两个层次：
+
+1. 纯映射测试：验证工作点到模板方块前缀的确定性映射、单调性、零进度和满进度边界。
+2. 世界集成测试：实际调用 `processPending`，验证零工作不放置、50% 工作只呈现 12/25 个真实方块、受保护方块冲突进入 NEEDS_REPAIR 且游标不前进、清除冲突后恢复、每次放置调用遵守配置预算、100% 工作后完成 25/25 方块并原子激活建筑/完成 Builder Job。
+3. 区块安全测试：施工目标位于未加载远端区块时保持 PENDING/cursor=0，不请求强制加载。
+
+**自动化执行记录：** 用户此前在提交 `30ad019` 本地运行 Forge GameTests，**48/48 required tests passed**。本次新增的两项集成 GameTest 是刚加入的代码，尚未包含在上述 48 项结果中，必须由用户在本地重新运行才能标记 PASS。用户此前在提交 `632101a` 提供过 `gradlew.bat build` 的 `BUILD SUCCESSFUL` 日志；本次新测试代码尚未编译验证。
+
+## 客户端验收记录（2026-11-06）
+
+用户在「新的世界2」中完成仓库蓝图真实客户端施工流程：50% 工作点时实际放置 12/25 方块；施工检测到地形冲突后暂停，修复地形并执行恢复命令后继续；推进到 100% 后记录为 `ACTIVE`、`worldSync=SYNCED`、`placementCursor=25`、escrow 为空，关联 Builder Job 为 `COMPLETED`。退出并重新进入世界后，建筑状态/游标仍为上述值，用户确认世界中的仓库方块也完整保留；`/empires debug validate` 为 PASS（0 errors、0 warnings）。
 
 ## 验收状态
 
-分阶段放置实现及其 48 项自动化测试已通过上述本地验证；真实游戏中的新建筑分阶段外观、冲突恢复、Chunk 卸载/重载以及 Dedicated Server 仍未完成验收。随后添加的 `add-resource` OP 调试命令尚未由用户重新 build/GameTests 验证。运行新代码前备份「新的世界2」及工程目录。
+| 项目 | 状态 |
+|---|---|
+| 真实客户端分阶段方块施工、冲突恢复、完工激活 | PASS（用户日志及目视确认） |
+| 退出/重新进入后建筑逻辑记录与实际方块保留 | PASS（用户日志及目视确认） |
+| 原存档 Validator | PASS（0 errors、0 warnings） |
+| 原有 48 项 Forge GameTests | PASS（用户本地日志；早于本次新增测试） |
+| 本次新增的世界集成/远端区块 GameTests | NOT RUN（等待本地构建与测试） |
+| 目标区块真实卸载后重新加载恢复 | NOT RUN |
+| Dedicated Server / 真实多人 | NOT RUN |
+
+运行新增代码前仍建议备份「新的世界2」及工程目录。测试所用的远端坐标仅存在于 GameTest 临时测试世界，不会写入玩家存档。
