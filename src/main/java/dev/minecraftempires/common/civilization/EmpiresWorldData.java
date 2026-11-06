@@ -497,7 +497,11 @@ public final class EmpiresWorldData extends SavedData {
                     || !current.reservedMaterials().asMap().equals(blueprint.materials().asMap())
                     || !updatedBuilding.reservedMaterials().asMap().equals(current.reservedMaterials().asMap())
                     || (current.worldSyncState() != dev.minecraftempires.common.building.WorldSyncState.NOT_PLACED
-                    && current.worldSyncState() != dev.minecraftempires.common.building.WorldSyncState.SYNCED)) {
+                    && current.worldSyncState() != dev.minecraftempires.common.building.WorldSyncState.SYNCED)
+                    || (current.worldSyncState() == dev.minecraftempires.common.building.WorldSyncState.NOT_PLACED
+                    && updatedBuilding.worldSyncState() != dev.minecraftempires.common.building.WorldSyncState.PENDING)
+                    || (current.worldSyncState() == dev.minecraftempires.common.building.WorldSyncState.SYNCED
+                    && updatedBuilding.worldSyncState() != dev.minecraftempires.common.building.WorldSyncState.SYNCED)) {
                 throw new IllegalStateException("Invalid RESERVED -> UNDER_CONSTRUCTION transition for building "
                         + current.id());
             }
@@ -508,7 +512,11 @@ public final class EmpiresWorldData extends SavedData {
                         + ": UNDER_CONSTRUCTION -> " + updatedBuilding.state());
             }
             if (updatedBuilding.constructionProgress() < current.constructionProgress()
-                    || updatedBuilding.constructionProgress() > current.workPointsRequired()) {
+                    || updatedBuilding.constructionProgress() > current.workPointsRequired()
+                    || updatedBuilding.placementCursor() != current.placementCursor()
+                    || (current.worldSyncState() != updatedBuilding.worldSyncState()
+                    && !(current.worldSyncState() == dev.minecraftempires.common.building.WorldSyncState.NOT_PLACED
+                    && updatedBuilding.worldSyncState() == dev.minecraftempires.common.building.WorldSyncState.PENDING))) {
                 throw new IllegalArgumentException("Construction progress must be monotonic and within project bounds: "
                         + current.id());
             }
@@ -664,6 +672,7 @@ public final class EmpiresWorldData extends SavedData {
     ) {
         return sameBuildingIdentity(current, expected)
                 && current.state() == expected.state()
+                && current.worldSyncState() == expected.worldSyncState()
                 && current.constructionProgress() == expected.constructionProgress()
                 && current.reservedMaterials().asMap().equals(expected.reservedMaterials().asMap());
     }
@@ -683,7 +692,6 @@ public final class EmpiresWorldData extends SavedData {
                 && current.placementCursor() == candidate.placementCursor()
                 && current.workPointsRequired() == candidate.workPointsRequired()
                 && current.durability() == candidate.durability()
-                && current.worldSyncState() == candidate.worldSyncState()
                 && current.templateChecksum().equals(candidate.templateChecksum())
                 && current.createdAtGameTime() == candidate.createdAtGameTime()
                 && current.schemaVersion() == candidate.schemaVersion();
