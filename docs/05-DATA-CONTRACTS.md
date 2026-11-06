@@ -151,6 +151,8 @@ jobId、jobType、ownerFactionId、targetId、assignedCitizenId、state、priori
 
 M1-004 建筑材料预留采用全额 escrow：FactionRecord.resources 代表可用库存，BuildingRecord.reservedMaterials 代表项目锁定库存。单项目的 Building UUID 是稳定幂等键；PLANNED → RESERVED 事务必须在同一 SavedData mutation 中同步扣减 faction 可用库存并写入完整 building escrow。材料不足时拒绝整个事务，不允许部分扣费或负余额。当前不实现通用 requestId 回执表；网络命令网关上线时仍须对 requestId 做跨请求防重放处理。
 
+M1-005 施工进度继续保存在同一 BuildingRecord 中：RESERVED → UNDER_CONSTRUCTION 时必须保留完整初始 escrow。每次累计施工进度更新与剩余 escrow 在同一 SavedData mutation 中提交；对于每种资源，已消费总量为 floor(totalCost × completedWork / totalWork)，剩余 escrow 为 totalCost − consumed。所有批次都根据累计进度计算，不能按每批独立取整。expectedProgress 是施工批次的 compare-and-set 令牌；同一批次重放返回已提交结果，旧进度令牌提交不同批次必须拒绝。ACTIVE 的必要条件为 completedWork=workPointsRequired、escrow 为空且 worldSyncState=SYNCED。placementCursor 与 constructionProgress 是不同维度，不可互相代替。
+
 ## 7. 存档迁移
 
 - 根数据含 schemaVersion。
