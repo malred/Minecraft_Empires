@@ -43,8 +43,8 @@ public final class ConstructionProject {
 
     /**
      * Applies a cumulative work-point batch. expectedProgress is the compare-and-set
-     * token; replaying the same expectedProgress/workPoints pair returns the already
-     * committed result rather than applying the batch again.
+     * token; once the persisted progress advances, every submission carrying the old
+     * token is rejected. This prevents a retry or competing worker from applying twice.
      */
     public static BuildingRecord applyWork(
             final BuildingRecord building,
@@ -64,12 +64,10 @@ public final class ConstructionProject {
         final long targetProgress = expectedProgress + Math.min(workPoints, remainingWork);
 
         if (building.constructionProgress() != expectedProgress) {
-            if (building.constructionProgress() == targetProgress && isConsistentProgressSnapshot(building, blueprint)) {
-                return building;
-            }
             throw new IllegalStateException("Stale construction work batch for building " + building.id()
                     + ": expectedProgress=" + expectedProgress
-                    + ", actualProgress=" + building.constructionProgress());
+                    + ", actualProgress=" + building.constructionProgress()
+                    + "; read the latest building progress before submitting new work");
         }
 
         if (building.state() != BuildingState.UNDER_CONSTRUCTION) {
@@ -156,22 +154,6 @@ public final class ConstructionProject {
             }
         }
         return ResourceLedger.of(remaining);
-    }
-
-    private static boolean isConsistentProgressSnapshot(
-            final BuildingRecord building,
-            final BlueprintDefinition blueprint
-    ) {
-        final ResourceLedger expected = remainingEscrow(
-                blueprint.materials(), building.constructionProgress(), building.workPointsRequired());
-        if (!building.reservedMaterials().asMap().equals(expected.asMap())) {
-            return false;
-        }
-        final boolean shouldBeActive = building.constructionProgress() == building.workPointsRequired()
-                && building.worldSyncState() == WorldSyncState.SYNCED;
-        return shouldBeActive
-                ? building.state() == BuildingState.ACTIVE
-                : building.state() == BuildingState.UNDER_CONSTRUCTION;
     }
 
     private static void validateBlueprint(
