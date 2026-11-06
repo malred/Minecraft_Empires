@@ -52,10 +52,20 @@ M1-006 尚未提供居民工作 tick/寻路，因此当前工作点仍由 OP 调
 - 不把未完成建筑标记为 ACTIVE。
 - 本任务不实现自动寻路、自动分配工人、搬运实体动画、取消退款或损坏修理。
 
+## 本地测试辅助命令
+
+开发阶段可由 OP 使用以下命令向指定势力的可用资源账本追加指定资源（不会覆盖其他资源，也不会自动换算不同资源 ID）：
+
+```mcfunction
+/empires debug add-resource <factionUUID> <resourceId> <amount>
+```
+
+例如仓库蓝图所需材料可分别追加 `minecraft:oak_planks` 9 个、`minecraft:cobblestone` 9 个。该命令仅用于开发验收，不代表正式经济产出；已预留到建筑 escrow 的材料不在可用账本中。
+
 ## GameTests
 
-新增 M1-007 测试覆盖工作点到方块数量的确定性映射、单调性、零进度不放置及满进度到达完整模板。既有 M0/M1 回归测试必须全部继续通过；用户本地运行后更新最终测试总数与日志证据。
+新增 M1-007 测试覆盖工作点到方块数量的确定性映射、单调性、零进度不放置及满进度到达完整模板。用户于 2026-11-06 在提交 `632101a` 本地运行 `gradlew.bat build`，结果 `BUILD SUCCESSFUL`；Forge GameTests 为 **48/48 required tests passed**。同一版本客户端成功加载旧存档 schema 4，worldId 不变、readOnly=false，世界校验 PASS（0 errors/0 warnings）。
 
 ## 验收状态
 
-代码已提交到开发分支，**尚未完成本地 Gradle build / Forge GameTests / 客户端 / Dedicated Server 验收**。本任务不能据此标记 PASS。运行新代码前备份「新的世界2」及工程目录。
+分阶段放置实现及其 48 项自动化测试已通过上述本地验证；真实游戏中的新建筑分阶段外观、冲突恢复、Chunk 卸载/重载以及 Dedicated Server 仍未完成验收。随后添加的 `add-resource` OP 调试命令尚未由用户重新 build/GameTests 验证。运行新代码前备份「新的世界2」及工程目录。
