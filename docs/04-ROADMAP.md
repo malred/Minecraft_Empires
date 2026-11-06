@@ -59,7 +59,7 @@ flowchart TD
 - M1-004 ResourceLedger 与原子预留。（**PASS**：用户本地 29/29 Forge GameTests 通过；「新的世界2」worldId/schema 保持不变，status 正常且 validate PASS，0 errors/0 warnings；贴出的日志片段未包含 Gradle 最终构建行，Dedicated Server/真实多人测试仍待执行）
 - M1-005 ConstructionProject 状态机。（**PASS**：用户本地 38/38 required Forge GameTests 通过；「新的世界2」原存档 worldId/schema=3/readOnly=false 保持不变，status 正常，validate PASS，2 个建筑、0 errors/0 warnings。日志片段未包含 Gradle 最终 BUILD SUCCESSFUL 行；Dedicated Server/真实多人测试仍待执行）
 - M1-006 Builder Job。（**PASS**：用户本地 47/47 required Forge GameTests 通过；「新的世界2」schema 3→4 迁移成功，worldId 不变、schema=4、readOnly=false，factions=1、settlements=2、citizens=3、buildings=2；Validator PASS，0 errors/0 warnings。任务列表为空，与当前没有 UNDER_CONSTRUCTION 项目相符。日志片段未显示 Gradle 最终 BUILD SUCCESSFUL 摘要；Dedicated Server/真实多人测试仍待执行。）
-- M1-007 分批方块施工。
+- M1-007 分批方块施工。**开发分支已实现初版，验收待用户本地执行**：施工工作点映射模板前缀，placement cursor 独立持久化；每 tick 限预算且只写已加载区块；完成同步后激活，冲突可恢复。新增 1 项 GameTest，既有回归必须保持通过。
 - M1-008 保存/恢复/取消/损坏。
 - M1-009 基地管理 UI 最小版。
 - M1-010 M1 集成测试。
