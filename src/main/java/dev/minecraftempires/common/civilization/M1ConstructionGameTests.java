@@ -54,6 +54,36 @@ public final class M1ConstructionGameTests {
             batch = "empires.m1_005",
             timeoutTicks = 20
     )
+    public static void constructionCannotStartBeforeMaterialsAreReserved(final GameTestHelper helper) {
+        final Fixture fixture = createUnreservedFixture(helper, "M1-005 Unreserved");
+        final ResourceLedger balanceBefore = fixture.service().findFaction(fixture.faction().id())
+                .orElseThrow().resources();
+
+        boolean rejected = false;
+        try {
+            fixture.service().startConstruction(fixture.building().id());
+        } catch (IllegalStateException expected) {
+            rejected = expected.getMessage().contains("only from RESERVED");
+        }
+        final BuildingRecord unchanged = fixture.service().findBuilding(fixture.building().id()).orElseThrow();
+        final ResourceLedger balanceAfter = fixture.service().findFaction(fixture.faction().id())
+                .orElseThrow().resources();
+
+        helper.assertTrue(rejected, "A PLANNED project must not start before material reservation");
+        helper.assertTrue(unchanged.state() == BuildingState.PLANNED
+                        && unchanged.reservedMaterials().isEmpty(),
+                "Rejected construction start must leave the PLANNED record untouched");
+        helper.assertTrue(balanceBefore.asMap().equals(balanceAfter.asMap()),
+                "Rejected construction start must not modify faction inventory");
+        helper.succeed();
+    }
+
+    @GameTest(
+            template = "gametest_empty_5x5x5",
+            templateNamespace = "empires",
+            batch = "empires.m1_005",
+            timeoutTicks = 20
+    )
     public static void constructionWorkConsumesEscrowProportionallyAndRetryIsIdempotent(final GameTestHelper helper) {
         final Fixture fixture = createFixture(helper, "M1-005 Work Escrow", false);
         fixture.service().startConstruction(fixture.building().id());
@@ -227,6 +257,26 @@ public final class M1ConstructionGameTests {
         helper.assertTrue(!report.passed() && report.errorCount() == 1,
                 "Validator must detect an UNDER_CONSTRUCTION escrow inconsistent with cumulative work");
         helper.succeed();
+    }
+
+    private static Fixture createUnreservedFixture(
+            final GameTestHelper helper,
+            final String factionName
+    ) {
+        final var level = helper.getLevel();
+        final EmpiresWorldData data = new EmpiresWorldData();
+        final CivilizationService service = new CivilizationService(new SavedDataCivilizationRepository(data));
+        final FactionRecord faction = service.createFaction(
+                factionName, new ResourceLocation("empires", "bearfolk"), ControllerType.AI, level.getGameTime());
+        final BlockPos origin = helper.absolutePos(new BlockPos(1, 1, 1));
+        final SettlementRecord settlement = service.createSettlement(
+                faction.id(), level.dimension().location(), origin, level.getGameTime());
+        final BlueprintDefinition blueprint = BlueprintCatalog.find(BlueprintCatalog.WAREHOUSE_PROTOTYPE_ID)
+                .orElseThrow();
+        service.setResources(faction.id(), blueprint.materials());
+        final BuildingRecord planned = service.planBuilding(settlement.id(), blueprint.id(),
+                level.dimension().location(), origin, 0, level.getGameTime());
+        return new Fixture(data, service, faction, blueprint, planned);
     }
 
     private static Fixture createFixture(
