@@ -492,7 +492,7 @@ public final class M0IntegrationGameTests {
     @GameTest(
             template = "gametest_empty_5x5x5",
             templateNamespace = "empires",
-            batch = "empires.m1_003",
+            batch = "empires.m1_003_border",
             timeoutTicks = 20
     )
     public static void placementPrecheckRejectsFootprintOutsideWorldBorder(final GameTestHelper helper) {
@@ -506,7 +506,7 @@ public final class M0IntegrationGameTests {
         boolean rejected = false;
         try {
             border.setCenter(fixture.origin().getX() + 0.5D, fixture.origin().getZ() + 0.5D);
-            border.setSize(1.0D);
+            border.setSize(2.0D);
             BuildingPlacementService.planBuilding(fixture.level(), fixture.service(), fixture.faction().id(),
                     fixture.settlement().id(), BlueprintCatalog.WAREHOUSE_PROTOTYPE_ID,
                     fixture.origin(), 0, fixture.level().getGameTime());
