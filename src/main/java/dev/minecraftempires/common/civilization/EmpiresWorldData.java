@@ -285,6 +285,8 @@ public final class EmpiresWorldData extends SavedData {
         factions.put(updatedFaction.id(), updatedFaction);
         buildings.put(reservedBuilding.id(), reservedBuilding);
         settlements.put(settlement.id(), indexedSettlement);
+        setDirty();
+    }
 
     /**
      * Compare-and-set write for construction project progress. The faction inventory
@@ -415,9 +417,6 @@ public final class EmpiresWorldData extends SavedData {
                 && current.templateChecksum().equals(candidate.templateChecksum())
                 && current.createdAtGameTime() == candidate.createdAtGameTime()
                 && current.schemaVersion() == candidate.schemaVersion();
-    }
-
-        setDirty();
     }
 
     void setSimulationClock(final long gameTime) {
