@@ -56,6 +56,18 @@ public final class SavedDataCivilizationRepository implements CivilizationReposi
         data.putConstructionStart(expectedCurrent, updatedBuilding, newBuilderJob);
     }
 
+    @Override public void saveBuildingCancellation(
+            final FactionRecord expectedFaction,
+            final FactionRecord updatedFaction,
+            final BuildingRecord expectedBuilding,
+            final BuildingRecord cancelledBuilding,
+            final BuilderJobRecord expectedJob,
+            final BuilderJobRecord cancelledJob
+    ) {
+        data.putBuildingCancellation(expectedFaction, updatedFaction, expectedBuilding,
+                cancelledBuilding, expectedJob, cancelledJob);
+    }
+
     @Override public Optional<BuilderJobRecord> findBuilderJob(final UUID id) {
         return data.findBuilderJob(id);
     }
