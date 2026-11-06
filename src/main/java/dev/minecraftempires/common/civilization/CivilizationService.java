@@ -322,6 +322,7 @@ public final class CivilizationService {
         }
         for (BuildingRecord building : repository.buildings()) {
             if (building.state() == BuildingState.DEMOLISHED
+                    || building.state() == BuildingState.CANCELLED
                     || !building.ownerFactionId().equals(factionId)) {
                 continue;
             }
@@ -569,6 +570,7 @@ public final class CivilizationService {
             }
             for (BuildingRecord existing : repository.buildings()) {
                 if (existing.state() == BuildingState.DEMOLISHED
+                        || existing.state() == BuildingState.CANCELLED
                         || !existing.ownerFactionId().equals(faction.id())) {
                     continue;
                 }
@@ -588,6 +590,7 @@ public final class CivilizationService {
         final int newSizeZ = blueprint.rotatedSizeZ(rotationDegrees);
         for (BuildingRecord existing : repository.buildings()) {
             if (existing.state() == BuildingState.DEMOLISHED
+                    || existing.state() == BuildingState.CANCELLED
                     || !existing.dimensionId().equals(dimensionId)) {
                 continue;
             }
