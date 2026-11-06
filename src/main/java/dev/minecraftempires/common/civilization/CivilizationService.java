@@ -161,8 +161,8 @@ public final class CivilizationService {
     }
 
     /**
-     * Applies an idempotent construction work batch. expectedProgress is a compare-and-set
-     * token: a replay of the same token and amount returns the committed result.
+     * Applies one construction work batch guarded by expectedProgress. Once progress moves,
+     * old tokens are rejected; callers must read the latest progress before submitting more work.
      */
     public BuildingRecord applyConstructionWork(
             final UUID buildingId,
