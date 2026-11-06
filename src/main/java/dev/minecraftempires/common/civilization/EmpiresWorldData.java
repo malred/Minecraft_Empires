@@ -29,7 +29,7 @@ import java.util.stream.Collectors;
  */
 public final class EmpiresWorldData extends SavedData {
     public static final String DATA_NAME = "minecraft_empires_world";
-    public static final int CURRENT_SCHEMA_VERSION = 3;
+    public static final int CURRENT_SCHEMA_VERSION = 4;
     private static final int MIN_SUPPORTED_SCHEMA_VERSION = 1;
 
     private final UUID worldId;
@@ -38,6 +38,7 @@ public final class EmpiresWorldData extends SavedData {
     private final Map<UUID, SettlementRecord> settlements = new LinkedHashMap<>();
     private final Map<UUID, CitizenRecord> citizens = new LinkedHashMap<>();
     private final Map<UUID, BuildingRecord> buildings = new LinkedHashMap<>();
+    private final Map<UUID, BuilderJobRecord> builderJobs = new LinkedHashMap<>();
     private long simulationClock;
     private boolean readOnly;
     private String readOnlyReason = "";
@@ -74,6 +75,7 @@ public final class EmpiresWorldData extends SavedData {
     public int settlementCount() { return settlements.size(); }
     public int citizenCount() { return citizens.size(); }
     public int buildingCount() { return buildings.size(); }
+    public int builderJobCount() { return builderJobs.size(); }
     public int schemaVersion() { return sourceSchemaVersion; }
     public boolean isReadOnly() { return readOnly; }
     public String readOnlyReason() { return readOnlyReason; }
@@ -122,6 +124,20 @@ public final class EmpiresWorldData extends SavedData {
                 .collect(Collectors.toUnmodifiableList());
     }
 
+    public Optional<BuilderJobRecord> findBuilderJob(final UUID id) {
+        return Optional.ofNullable(builderJobs.get(id));
+    }
+
+    public List<BuilderJobRecord> builderJobs() {
+        return List.copyOf(builderJobs.values());
+    }
+
+    public List<BuilderJobRecord> builderJobsForBuilding(final UUID buildingId) {
+        return builderJobs.values().stream()
+                .filter(job -> job.buildingId().equals(buildingId))
+                .collect(Collectors.toUnmodifiableList());
+    }
+
     void putFaction(final FactionRecord record) {
         ensureWritable();
         factions.put(record.id(), record);
@@ -157,8 +173,112 @@ public final class EmpiresWorldData extends SavedData {
                 throw new IllegalArgumentException("Citizen home settlement must belong to the same faction");
             }
         }
+        for (BuilderJobRecord job : builderJobs.values()) {
+            if (job.isActive() && record.id().equals(job.assignedCitizenId())
+                    && (record.status() != CitizenStatus.ACTIVE
+                    || !record.professionId().equals(BuilderJobRecord.BUILDER_PROFESSION_ID))) {
+                throw new IllegalStateException("Citizen is assigned to active builder job " + job.id()
+                        + "; release that job before changing status or profession");
+            }
+        }
         citizens.put(record.id(), record);
         setDirty();
+    }
+
+    /** Persists a compare-and-set builder-job transition after validating ownership and worker eligibility. */
+    void putBuilderJob(final BuilderJobRecord expected, final BuilderJobRecord updated) {
+        ensureWritable();
+        final BuilderJobRecord current = builderJobs.get(updated.id());
+        if (expected == null) {
+            if (current != null) {
+                throw new IllegalStateException("Builder job already exists: " + updated.id());
+            }
+        } else {
+            if (current == null || !current.sameSnapshot(expected)) {
+                throw new IllegalStateException("Builder job changed before update; reload its latest state: "
+                        + updated.id());
+            }
+            if (!current.buildingId().equals(updated.buildingId())
+                    || !current.ownerFactionId().equals(updated.ownerFactionId())
+                    || !current.settlementId().equals(updated.settlementId())
+                    || current.priority() != updated.priority()
+                    || current.createdAtGameTime() != updated.createdAtGameTime()
+                    || current.schemaVersion() != updated.schemaVersion()) {
+                throw new IllegalArgumentException("Builder job update cannot change its identity or priority: "
+                        + updated.id());
+            }
+            if (!isAllowedBuilderJobTransition(current.state(), updated.state())) {
+                throw new IllegalStateException("Invalid builder job transition: " + current.state()
+                        + " -> " + updated.state() + " for " + updated.id());
+            }
+        }
+        validateBuilderJobForWrite(updated);
+        builderJobs.put(updated.id(), updated);
+        setDirty();
+    }
+
+    private void validateBuilderJobForWrite(final BuilderJobRecord job) {
+        final BuildingRecord building = buildings.get(job.buildingId());
+        if (building == null || !building.ownerFactionId().equals(job.ownerFactionId())
+                || !building.settlementId().equals(job.settlementId())) {
+            throw new IllegalArgumentException("Builder job references a missing or foreign building: "
+                    + job.buildingId());
+        }
+        if (job.isActive() && building.state() != dev.minecraftempires.common.building.BuildingState.UNDER_CONSTRUCTION) {
+            throw new IllegalStateException("Active builder jobs require an UNDER_CONSTRUCTION building: "
+                    + building.id());
+        }
+        if (job.state() == BuilderJobState.COMPLETED
+                && building.state() != dev.minecraftempires.common.building.BuildingState.ACTIVE) {
+            throw new IllegalStateException("Completed builder jobs require an ACTIVE building: " + building.id());
+        }
+        if (job.state().requiresAssignedCitizen()) {
+            final CitizenRecord citizen = citizens.get(job.assignedCitizenId());
+            if (citizen == null || citizen.status() != CitizenStatus.ACTIVE
+                    || !citizen.ownerFactionId().equals(job.ownerFactionId())
+                    || !citizen.professionId().equals(BuilderJobRecord.BUILDER_PROFESSION_ID)
+                    || (citizen.homeSettlementId() != null
+                    && !citizen.homeSettlementId().equals(job.settlementId()))) {
+                throw new IllegalArgumentException("Builder job worker must be an active builder of the owning faction "
+                        + "and settlement: " + job.assignedCitizenId());
+            }
+            for (BuilderJobRecord other : builderJobs.values()) {
+                if (!other.id().equals(job.id()) && other.isActive()
+                        && job.assignedCitizenId().equals(other.assignedCitizenId())) {
+                    throw new IllegalStateException("Citizen " + job.assignedCitizenId()
+                            + " already owns active builder job " + other.id());
+                }
+            }
+        }
+        if (job.isActive()) {
+            for (BuilderJobRecord other : builderJobs.values()) {
+                if (!other.id().equals(job.id()) && other.isActive()
+                        && job.buildingId().equals(other.buildingId())) {
+                    throw new IllegalStateException("Building already has active builder job " + other.id());
+                }
+            }
+        }
+    }
+
+    private static boolean isAllowedBuilderJobTransition(
+            final BuilderJobState from,
+            final BuilderJobState to
+    ) {
+        if (from == to) {
+            return true;
+        }
+        return switch (from) {
+            case AVAILABLE -> to == BuilderJobState.CLAIMED || to == BuilderJobState.COMPLETED;
+            case CLAIMED -> to == BuilderJobState.TRAVELLING || to == BuilderJobState.WORKING
+                    || to == BuilderJobState.AVAILABLE || to == BuilderJobState.BLOCKED
+                    || to == BuilderJobState.COMPLETED;
+            case TRAVELLING -> to == BuilderJobState.WORKING || to == BuilderJobState.AVAILABLE
+                    || to == BuilderJobState.BLOCKED || to == BuilderJobState.COMPLETED;
+            case WORKING -> to == BuilderJobState.AVAILABLE || to == BuilderJobState.BLOCKED
+                    || to == BuilderJobState.COMPLETED;
+            case BLOCKED -> to == BuilderJobState.AVAILABLE || to == BuilderJobState.COMPLETED;
+            case COMPLETED, FAILED, CANCELLED -> false;
+        };
     }
 
     /** Atomically updates the building map and its owning settlement's reverse index. */
@@ -383,9 +503,95 @@ public final class EmpiresWorldData extends SavedData {
             throw new IllegalStateException("Construction building has an invalid owning settlement: " + current.id());
         }
 
+        BuilderJobRecord createdJob = null;
+        if (current.state() == dev.minecraftempires.common.building.BuildingState.RESERVED
+                && updatedBuilding.state() == dev.minecraftempires.common.building.BuildingState.UNDER_CONSTRUCTION) {
+            createdJob = BuilderJobRecord.forBuilding(updatedBuilding, BuilderJobRecord.DEFAULT_PRIORITY,
+                    Math.max(simulationClock, updatedBuilding.createdAtGameTime()));
+            if (builderJobs.containsKey(createdJob.id())) {
+                throw new IllegalStateException("Stable builder job ID is already in use: " + createdJob.id());
+            }
+            for (BuilderJobRecord existing : builderJobs.values()) {
+                if (existing.isActive() && existing.buildingId().equals(updatedBuilding.id())) {
+                    throw new IllegalStateException("Building already has an active builder job: " + existing.id());
+                }
+            }
+        }
+        BuilderJobRecord completedJob = null;
+        if (updatedBuilding.state() == dev.minecraftempires.common.building.BuildingState.ACTIVE) {
+            for (BuilderJobRecord existing : builderJobs.values()) {
+                if (existing.isActive() && existing.buildingId().equals(updatedBuilding.id())) {
+                    if (completedJob != null) {
+                        throw new IllegalStateException("Building has multiple active builder jobs: "
+                                + updatedBuilding.id());
+                    }
+                    completedJob = existing.complete(Math.max(simulationClock, existing.updatedAtGameTime()));
+                }
+            }
+        }
+
+        // Publish the building, settlement index and corresponding builder-job lifecycle together.
         buildings.put(updatedBuilding.id(), updatedBuilding);
         settlements.put(settlement.id(), settlement.withBuildingId(updatedBuilding.id()));
+        if (createdJob != null) {
+            builderJobs.put(createdJob.id(), createdJob);
+        }
+        if (completedJob != null) {
+            builderJobs.put(completedJob.id(), completedJob);
+        }
         setDirty();
+    }
+
+    private void validateBuilderJobStore() {
+        final Map<UUID, UUID> activeJobsByBuilding = new LinkedHashMap<>();
+        final Map<UUID, UUID> activeJobsByCitizen = new LinkedHashMap<>();
+        for (BuilderJobRecord job : builderJobs.values()) {
+            final BuildingRecord building = buildings.get(job.buildingId());
+            if (building == null || !building.ownerFactionId().equals(job.ownerFactionId())
+                    || !building.settlementId().equals(job.settlementId())) {
+                throw new IllegalArgumentException("Builder job " + job.id()
+                        + " references a missing or foreign building " + job.buildingId());
+            }
+            if (job.isActive()) {
+                if (building.state() != dev.minecraftempires.common.building.BuildingState.UNDER_CONSTRUCTION) {
+                    throw new IllegalArgumentException("Active builder job " + job.id()
+                            + " targets a building that is not UNDER_CONSTRUCTION");
+                }
+                final UUID previous = activeJobsByBuilding.putIfAbsent(job.buildingId(), job.id());
+                if (previous != null) {
+                    throw new IllegalArgumentException("Building " + job.buildingId()
+                            + " has multiple active builder jobs " + previous + " and " + job.id());
+                }
+            } else if (job.state() == BuilderJobState.COMPLETED
+                    && building.state() != dev.minecraftempires.common.building.BuildingState.ACTIVE) {
+                throw new IllegalArgumentException("Completed builder job " + job.id()
+                        + " targets a building that is not ACTIVE");
+            }
+
+            if (job.state().requiresAssignedCitizen()) {
+                final CitizenRecord citizen = citizens.get(job.assignedCitizenId());
+                if (citizen == null || citizen.status() != CitizenStatus.ACTIVE
+                        || !citizen.ownerFactionId().equals(job.ownerFactionId())
+                        || !citizen.professionId().equals(BuilderJobRecord.BUILDER_PROFESSION_ID)
+                        || (citizen.homeSettlementId() != null
+                        && !citizen.homeSettlementId().equals(job.settlementId()))) {
+                    throw new IllegalArgumentException("Builder job " + job.id()
+                            + " has an ineligible assigned citizen " + job.assignedCitizenId());
+                }
+                final UUID previous = activeJobsByCitizen.putIfAbsent(job.assignedCitizenId(), job.id());
+                if (previous != null) {
+                    throw new IllegalArgumentException("Citizen " + job.assignedCitizenId()
+                            + " is assigned to multiple active builder jobs " + previous + " and " + job.id());
+                }
+            }
+        }
+        for (BuildingRecord building : buildings.values()) {
+            if (building.state() == dev.minecraftempires.common.building.BuildingState.UNDER_CONSTRUCTION
+                    && !activeJobsByBuilding.containsKey(building.id())) {
+                throw new IllegalArgumentException("UNDER_CONSTRUCTION building " + building.id()
+                        + " has no active builder job");
+            }
+        }
     }
 
     private static boolean sameConstructionSnapshot(
@@ -473,6 +679,12 @@ public final class EmpiresWorldData extends SavedData {
             buildingTags.add(building.save());
         }
         tag.put("buildings", buildingTags);
+
+        final ListTag builderJobTags = new ListTag();
+        for (BuilderJobRecord job : builderJobs.values()) {
+            builderJobTags.add(job.save());
+        }
+        tag.put("builder_jobs", builderJobTags);
         return tag;
     }
 
@@ -606,6 +818,35 @@ public final class EmpiresWorldData extends SavedData {
                 final SettlementRecord settlement = data.settlements.get(building.settlementId());
                 if (settlement == null || !settlement.buildingIds().contains(building.id())) {
                     throw new IllegalArgumentException("Building is missing from its settlement reverse index: " + building.id());
+                }
+            }
+
+            if (loadedSchema >= 4) {
+                if (!tag.contains("builder_jobs", Tag.TAG_LIST)) {
+                    throw new IllegalArgumentException("Schema 4 data is missing builder_jobs list");
+                }
+                final ListTag builderJobTags = tag.getList("builder_jobs", Tag.TAG_COMPOUND);
+                for (int index = 0; index < builderJobTags.size(); index++) {
+                    final BuilderJobRecord record = BuilderJobRecord.load(builderJobTags.getCompound(index));
+                    if (data.builderJobs.putIfAbsent(record.id(), record) != null) {
+                        throw new IllegalArgumentException("Duplicate builder job id: " + record.id());
+                    }
+                }
+                data.validateBuilderJobStore();
+            } else {
+                // Schema 3 had durable construction projects but no job table. Recreate one
+                // deterministic AVAILABLE job for every in-progress project without touching
+                // citizens, buildings, faction inventory, or world blocks.
+                for (BuildingRecord building : data.buildings.values()) {
+                    if (building.state() == dev.minecraftempires.common.building.BuildingState.UNDER_CONSTRUCTION) {
+                        final BuilderJobRecord job = BuilderJobRecord.forBuilding(building,
+                                BuilderJobRecord.DEFAULT_PRIORITY,
+                                Math.max(data.simulationClock, building.createdAtGameTime()));
+                        data.builderJobs.put(job.id(), job);
+                    }
+                }
+                if (!data.builderJobs.isEmpty()) {
+                    data.setDirty();
                 }
             }
 
