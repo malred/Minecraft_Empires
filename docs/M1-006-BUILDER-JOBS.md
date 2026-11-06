@@ -121,7 +121,6 @@ schema 4 如果缺少任务列表、任务目标/归属错误、同一 worker/�
 
 ```powershell
 git pull --ff-only origin main
-# 拉取 feature branch 或在合并后拉取 main；不要在未合并前运行上方 main 拉取命令。
 .\gradlew.bat build runGameTestServer --console=plain
 ```
 
