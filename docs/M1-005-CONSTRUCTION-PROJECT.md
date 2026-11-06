@@ -37,8 +37,9 @@ applyConstructionWork(buildingId, expectedProgress, workPoints) 使用 expectedP
 
 - 工作批次必须有正数 work points。
 - 若当前进度等于 expectedProgress，服务应用该批工作并原子保存新进度与对应 escrow。
-- 同一 expectedProgress 和 workPoints 的已提交批次重试时，返回相同的持久化结果，不重复增加进度或消耗材料。
-- 使用旧 expectedProgress 提交不同批次时，拒绝为 stale batch，记录和 escrow 不变。
+- 只接受与当前持久化 progress 完全相等的 expectedProgress；每次成功提交后旧令牌立即失效。
+- 同一个批次重试或另一个工人使用相同旧令牌时，都会拒绝为 stale batch，记录和 escrow 不变；调用方必须先读取最新 progress 再提交后续工作。
+- 该机制提供严格的 at-most-once 进度推进，不假称是跨重连 requestId 回执。未来 Command Gateway 若需对重试返回原结果，必须持久化 requestId → result 回执。
 - 超出剩余项目工作量的请求会封顶到 workPointsRequired，不会溢出或超过项目上限。
 
 这是项目内的进度比较令牌，不是通用网络 requestId 收据系统；未来网络 Command Gateway 仍需按数据契约实现 requestId 防重放。
@@ -77,7 +78,7 @@ Faction 已在 M1-004 预留事务中扣除；施工工作不再触碰 Faction �
 
     /empires debug apply-construction-work <buildingUUID> 0 25
 
-重复执行相同的 expectedProgress=0, workPoints=25 批次是安全的。新的工作批次必须先读取最新 progress，并将其作为 expectedProgress。调试命令只是 M1-005 的验收入口；真实居民工人和任务调度将在 M1-006 接入。
+提交 expectedProgress=0, workPoints=25 后，旧令牌 0 会失效；再次提交会被拒绝且不会再次消耗材料。新的工作批次必须先读取最新 progress（此例为 25），并将其作为 expectedProgress。调试命令只是 M1-005 的验收入口；真实居民工人和任务调度将在 M1-006 接入。
 
 ## GameTests
 
@@ -85,7 +86,7 @@ Faction 已在 M1-004 预留事务中扣除；施工工作不再触碰 Faction �
 
 1. PLANNED 项目在材料预留前不能开工，拒绝时余额和记录不变。
 2. 开工只接受 RESERVED；重复开工不重复扣费。
-3. 工作按累计比例消耗 escrow；相同批次重试幂等。
+3. 工作按累计比例消耗 escrow；重复/过期批次被拒绝且不重复消耗 escrow。
 4. 旧进度令牌不能提交不同的新工作批次。
 5. 超大工作量封顶到总工作点，且不发生 long 溢出。
 6. 工作完成但方块未 SYNCED 时不能激活；同步后可激活。
