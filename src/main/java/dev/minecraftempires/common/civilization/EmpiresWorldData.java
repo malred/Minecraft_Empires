@@ -417,6 +417,25 @@ public final class EmpiresWorldData extends SavedData {
      * project's escrow in the same building-record mutation.
      */
     void putConstructionUpdate(final BuildingRecord expectedCurrent, final BuildingRecord updatedBuilding) {
+        putConstructionUpdate(expectedCurrent, updatedBuilding, null);
+    }
+
+    void putConstructionStart(
+            final BuildingRecord expectedCurrent,
+            final BuildingRecord updatedBuilding,
+            final BuilderJobRecord newBuilderJob
+    ) {
+        if (newBuilderJob == null) {
+            throw new IllegalArgumentException("Construction start requires a builder job");
+        }
+        putConstructionUpdate(expectedCurrent, updatedBuilding, newBuilderJob);
+    }
+
+    private void putConstructionUpdate(
+            final BuildingRecord expectedCurrent,
+            final BuildingRecord updatedBuilding,
+            final BuilderJobRecord newBuilderJob
+    ) {
         ensureWritable();
         final BuildingRecord current = buildings.get(expectedCurrent.id());
         if (current == null) {
@@ -507,10 +526,22 @@ public final class EmpiresWorldData extends SavedData {
         }
 
         BuilderJobRecord createdJob = null;
-        if (current.state() == dev.minecraftempires.common.building.BuildingState.RESERVED
-                && updatedBuilding.state() == dev.minecraftempires.common.building.BuildingState.UNDER_CONSTRUCTION) {
-            createdJob = BuilderJobRecord.forBuilding(updatedBuilding, BuilderJobRecord.DEFAULT_PRIORITY,
-                    Math.max(simulationClock, updatedBuilding.createdAtGameTime()));
+        final boolean startingConstruction = current.state()
+                == dev.minecraftempires.common.building.BuildingState.RESERVED
+                && updatedBuilding.state()
+                == dev.minecraftempires.common.building.BuildingState.UNDER_CONSTRUCTION;
+        if (startingConstruction) {
+            if (newBuilderJob == null
+                    || !newBuilderJob.id().equals(BuilderJobRecord.forBuilding(
+                    updatedBuilding, newBuilderJob.priority(), newBuilderJob.createdAtGameTime()).id())
+                    || !newBuilderJob.buildingId().equals(updatedBuilding.id())
+                    || !newBuilderJob.ownerFactionId().equals(updatedBuilding.ownerFactionId())
+                    || !newBuilderJob.settlementId().equals(updatedBuilding.settlementId())
+                    || newBuilderJob.state() != BuilderJobState.AVAILABLE
+                    || newBuilderJob.assignedCitizenId() != null) {
+                throw new IllegalArgumentException("Construction start must atomically create its matching AVAILABLE builder job");
+            }
+            createdJob = newBuilderJob;
             if (builderJobs.containsKey(createdJob.id())) {
                 throw new IllegalStateException("Stable builder job ID is already in use: " + createdJob.id());
             }
@@ -519,6 +550,8 @@ public final class EmpiresWorldData extends SavedData {
                     throw new IllegalStateException("Building already has an active builder job: " + existing.id());
                 }
             }
+        } else if (newBuilderJob != null) {
+            throw new IllegalArgumentException("A builder job can only be created by RESERVED -> UNDER_CONSTRUCTION");
         }
         BuilderJobRecord completedJob = null;
         if (updatedBuilding.state() == dev.minecraftempires.common.building.BuildingState.ACTIVE) {
