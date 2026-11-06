@@ -104,4 +104,4 @@ Faction 已在 M1-004 预留事务中扣除；施工工作不再触碰 Faction �
 
 ## 本地验收状态
 
-**待本地验收。** 代码与 9 项 Forge GameTests 已提交开发分支。需用户执行完整 build/GameTest 回归及既有存档 status/validate 检查后，再记录 PASS。助手环境未运行 Forge Gradle build、GameTestServer 或 Minecraft 客户端。
+**待本地复验。** 用户首次执行 `gradlew.bat build runGameTestServer --console=plain` 时，`compileJava` 报告本测试文件存在两个错误：缺少 `ConstructionProject` import，以及一个 `createFixture` 调用缺少 `worldAlreadySynced` 参数。已在修复提交中补齐导入并传入 `false`；9 项 GameTests 尚未运行。请重新执行完整 build/GameTest 回归及既有存档 status/validate 检查后，再记录 PASS。当前日志中的 ResourceLocation 构造器输出为弃用警告，不是这次编译失败原因。助手环境未运行 Forge Gradle build、GameTestServer 或 Minecraft 客户端。
