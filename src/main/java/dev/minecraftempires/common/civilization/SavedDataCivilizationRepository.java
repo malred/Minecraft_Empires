@@ -37,4 +37,7 @@ public final class SavedDataCivilizationRepository implements CivilizationReposi
         return data.buildingsForSettlement(settlementId);
     }
     @Override public void saveBuilding(final BuildingRecord record) { data.putBuilding(record); }
+    @Override public void saveBuildingReservation(final FactionRecord updatedFaction, final BuildingRecord reservedBuilding) {
+        data.putBuildingReservation(updatedFaction, reservedBuilding);
+    }
 }
