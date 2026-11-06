@@ -4,6 +4,7 @@ import dev.minecraftempires.MinecraftEmpires;
 import dev.minecraftempires.common.building.BlueprintCatalog;
 import dev.minecraftempires.common.building.BlueprintDefinition;
 import dev.minecraftempires.common.building.BuildingRecord;
+import dev.minecraftempires.common.building.ConstructionProject;
 import dev.minecraftempires.common.building.BuildingState;
 import dev.minecraftempires.common.building.WorldSyncState;
 import net.minecraft.core.BlockPos;
@@ -253,7 +254,7 @@ public final class M1ConstructionGameTests {
             timeoutTicks = 20
     )
     public static void validatorDetectsConstructionEscrowMismatch(final GameTestHelper helper) {
-        final Fixture fixture = createFixture(helper, "M1-005 Escrow Validation");
+        final Fixture fixture = createFixture(helper, "M1-005 Escrow Validation", false);
         fixture.service().startConstruction(fixture.building().id());
         fixture.service().applyConstructionWork(fixture.building().id(), 0L, 25L);
         final BuildingRecord current = fixture.service().findBuilding(fixture.building().id()).orElseThrow();
