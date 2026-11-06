@@ -244,6 +244,12 @@ public final class WorldDataValidator {
                                 + " has completed work and SYNCED blocks but is awaiting ACTIVE transition."));
                     }
                 }
+                case CANCELLED -> {
+                    if (!building.reservedMaterials().isEmpty()) {
+                        issues.add(new Issue(Severity.ERROR, "CANCELLED building " + building.id()
+                                + " retains reserved materials."));
+                    }
+                }
                 case ACTIVE -> {
                     if (building.constructionProgress() != building.workPointsRequired()
                             || !building.reservedMaterials().isEmpty()
@@ -257,7 +263,8 @@ public final class WorldDataValidator {
                 }
             }
             if (blueprint.category() == dev.minecraftempires.common.building.BuildingCategory.HEADQUARTERS
-                    && building.state() != BuildingState.DEMOLISHED) {
+                    && building.state() != BuildingState.DEMOLISHED
+                    && building.state() != BuildingState.CANCELLED) {
                 final UUID previousHeadquarters = headquartersByFaction.putIfAbsent(
                         building.ownerFactionId(), building.id());
                 if (previousHeadquarters != null && !previousHeadquarters.equals(building.id())) {
@@ -363,7 +370,8 @@ public final class WorldDataValidator {
             final List<Issue> issues
     ) {
         final List<BuildingRecord> candidates = buildings.values().stream()
-                .filter(building -> building.state() != BuildingState.DEMOLISHED)
+                .filter(building -> building.state() != BuildingState.DEMOLISHED
+                        && building.state() != BuildingState.CANCELLED)
                 .toList();
         for (int firstIndex = 0; firstIndex < candidates.size(); firstIndex++) {
             final BuildingRecord first = candidates.get(firstIndex);
