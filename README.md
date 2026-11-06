@@ -80,7 +80,7 @@ Gradle 8.8 目前会提示部分旧 API/插件功能已弃用；这类提示不�
 /empires debug apply-construction-work <buildingUUID> <expectedProgress> <workPoints>
 /empires debug activate-building <buildingUUID>
 /empires debug assign-builder <citizenUUID>
-/empires debug create-builder-job <buildingUUID> [priority]
+/empires debug create-builder-job <buildingUUID>
 /empires debug list-builder-jobs [buildingUUID]
 /empires debug claim-builder-job <jobUUID> <citizenUUID>
 /empires debug start-builder-job <jobUUID> <citizenUUID>
