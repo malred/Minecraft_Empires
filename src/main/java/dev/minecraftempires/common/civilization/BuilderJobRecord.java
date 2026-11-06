@@ -3,6 +3,7 @@ package dev.minecraftempires.common.civilization;
 import dev.minecraftempires.common.building.BuildingRecord;
 import dev.minecraftempires.common.building.BuildingState;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.resources.ResourceLocation;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
@@ -17,6 +18,7 @@ public final class BuilderJobRecord {
     public static final int DEFAULT_PRIORITY = 50;
     public static final int MIN_PRIORITY = 0;
     public static final int MAX_PRIORITY = 100;
+    public static final ResourceLocation BUILDER_PROFESSION_ID = new ResourceLocation("empires", "builder");
 
     private final UUID id;
     private final UUID buildingId;
