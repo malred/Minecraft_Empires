@@ -321,6 +321,16 @@ public final class M0IntegrationGameTests {
                 "A faction must not be allowed to plan a second non-demolished headquarters");
         helper.assertTrue(service.buildings().size() == 1,
                 "Rejected duplicate headquarters planning must not persist a second record");
+
+        final BuildingRecord first = service.buildings().get(0);
+        data.putBuilding(first.withState(dev.minecraftempires.common.building.BuildingState.DEMOLISHED,
+                first.worldSyncState()));
+        service.planBuilding(settlement.id(), BlueprintCatalog.HEADQUARTERS_HALL_ID,
+                OVERWORLD, new BlockPos(30, 64, 30), 0, 2L);
+        helper.assertTrue(service.buildings().size() == 2
+                        && service.buildings().stream().filter(building ->
+                        building.state() != dev.minecraftempires.common.building.BuildingState.DEMOLISHED).count() == 1,
+                "An explicitly demolished headquarters should release the faction's unique slot");
         helper.succeed();
     }
 
@@ -393,6 +403,37 @@ public final class M0IntegrationGameTests {
             batch = "empires.m1_002",
             timeoutTicks = 20
     )
+    @GameTest(
+            template = "gametest_empty_5x5x5",
+            templateNamespace = "empires",
+            batch = "empires.m1_002",
+            timeoutTicks = 20
+    )
+    public static void capitalMustMatchExistingHeadquartersSettlement(final GameTestHelper helper) {
+        final EmpiresWorldData data = new EmpiresWorldData();
+        final CivilizationService service = new CivilizationService(new SavedDataCivilizationRepository(data));
+        final FactionRecord faction = service.createFaction(
+                "M1 HQ Capital Match", TEST_SPECIES, ControllerType.AI, 0L);
+        final SettlementRecord headquartersSettlement = service.createSettlement(
+                faction.id(), OVERWORLD, BlockPos.ZERO, 0L);
+        final SettlementRecord otherSettlement = service.createSettlement(
+                faction.id(), OVERWORLD, new BlockPos(100, 64, 100), 0L);
+        service.planBuilding(headquartersSettlement.id(), BlueprintCatalog.HEADQUARTERS_HALL_ID,
+                OVERWORLD, new BlockPos(10, 64, 10), 0, 0L);
+
+        boolean mismatchRejected = false;
+        try {
+            service.setCapitalSettlement(faction.id(), otherSettlement.id());
+        } catch (IllegalStateException expected) {
+            mismatchRejected = true;
+        }
+        helper.assertTrue(mismatchRejected,
+                "Capital settlement must match the settlement holding the non-demolished headquarters");
+        helper.assertTrue(service.findFaction(faction.id()).orElseThrow().capitalSettlementId() == null,
+                "Rejected capital binding must leave the faction's capital unchanged");
+        helper.succeed();
+    }
+
     public static void validatorDetectsDuplicateFactionHeadquarters(final GameTestHelper helper) {
         final EmpiresWorldData data = new EmpiresWorldData();
         final CivilizationService service = new CivilizationService(new SavedDataCivilizationRepository(data));
