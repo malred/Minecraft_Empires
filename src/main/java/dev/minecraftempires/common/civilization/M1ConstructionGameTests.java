@@ -84,15 +84,20 @@ public final class M1ConstructionGameTests {
             batch = "empires.m1_005",
             timeoutTicks = 20
     )
-    public static void constructionWorkConsumesEscrowProportionallyAndRetryIsIdempotent(final GameTestHelper helper) {
+    public static void constructionWorkConsumesEscrowAndRejectsDuplicateProgressToken(final GameTestHelper helper) {
         final Fixture fixture = createFixture(helper, "M1-005 Work Escrow", false);
         fixture.service().startConstruction(fixture.building().id());
         final long work = 25L;
 
         final BuildingRecord first = fixture.service().applyConstructionWork(
                 fixture.building().id(), 0L, work);
-        final BuildingRecord retry = fixture.service().applyConstructionWork(
-                fixture.building().id(), 0L, work);
+        boolean duplicateRejected = false;
+        try {
+            fixture.service().applyConstructionWork(fixture.building().id(), 0L, work);
+        } catch (IllegalStateException expected) {
+            duplicateRejected = expected.getMessage().contains("Stale construction work batch");
+        }
+        final BuildingRecord afterDuplicate = fixture.service().findBuilding(fixture.building().id()).orElseThrow();
         final ResourceLedger expectedEscrow = ConstructionProject.remainingEscrow(
                 fixture.blueprint().materials(), work, fixture.blueprint().workPoints());
 
@@ -100,9 +105,10 @@ public final class M1ConstructionGameTests {
                 "Construction progress must advance by the accepted work points");
         helper.assertTrue(first.reservedMaterials().asMap().equals(expectedEscrow.asMap()),
                 "Escrow must be the deterministic cumulative remainder for the new progress");
-        helper.assertTrue(retry.constructionProgress() == first.constructionProgress()
-                        && retry.reservedMaterials().asMap().equals(first.reservedMaterials().asMap()),
-                "Replaying the same expected-progress batch must not consume escrow twice");
+        helper.assertTrue(duplicateRejected
+                        && afterDuplicate.constructionProgress() == first.constructionProgress()
+                        && afterDuplicate.reservedMaterials().asMap().equals(first.reservedMaterials().asMap()),
+                "A repeated old progress token must be rejected without consuming escrow twice");
         helper.assertTrue(fixture.service().findFaction(fixture.faction().id()).orElseThrow()
                         .resources().isEmpty(),
                 "Work must consume project escrow, not credit or debit faction availability again");
