@@ -484,6 +484,66 @@ public final class M1ConstructionGameTests {
         helper.succeed();
     }
 
+    @GameTest(template = "gametest_empty_5x5x5", templateNamespace = "empires", batch = "empires.m1_008a", timeoutTicks = 20)
+    public static void cancellingPlannedBuildingDoesNotCreditInventory(final GameTestHelper helper) {
+        final Fixture fixture = createUnreservedFixture(helper, "M1-008A Planned Cancel");
+        final ResourceLedger before = fixture.service().findFaction(fixture.faction().id()).orElseThrow().resources();
+        final BuildingRecord cancelled = fixture.service().cancelBuilding(fixture.building().id(), helper.getLevel().getGameTime());
+        final ResourceLedger after = fixture.service().findFaction(fixture.faction().id()).orElseThrow().resources();
+        final BuildingRecord retried = fixture.service().cancelBuilding(fixture.building().id(), helper.getLevel().getGameTime());
+        helper.assertTrue(cancelled.state() == BuildingState.CANCELLED && cancelled.reservedMaterials().isEmpty()
+                        && before.asMap().equals(after.asMap()) && retried.state() == BuildingState.CANCELLED,
+                "Cancelling a PLANNED building must be idempotent and must not mint resources");
+        helper.succeed();
+    }
+
+    @GameTest(template = "gametest_empty_5x5x5", templateNamespace = "empires", batch = "empires.m1_008a", timeoutTicks = 20)
+    public static void cancellingReservedBuildingRefundsFullEscrowOnce(final GameTestHelper helper) {
+        final Fixture fixture = createFixture(helper, "M1-008A Reserved Cancel", false);
+        final BuildingRecord cancelled = fixture.service().cancelBuilding(fixture.building().id(), helper.getLevel().getGameTime());
+        final ResourceLedger after = fixture.service().findFaction(fixture.faction().id()).orElseThrow().resources();
+        final BuildingRecord retried = fixture.service().cancelBuilding(fixture.building().id(), helper.getLevel().getGameTime());
+        final ResourceLedger afterRetry = fixture.service().findFaction(fixture.faction().id()).orElseThrow().resources();
+        helper.assertTrue(cancelled.state() == BuildingState.CANCELLED && cancelled.reservedMaterials().isEmpty()
+                        && after.asMap().equals(fixture.blueprint().materials().asMap())
+                        && afterRetry.asMap().equals(after.asMap()) && retried.state() == BuildingState.CANCELLED,
+                "Cancelling RESERVED must refund full escrow exactly once");
+        helper.succeed();
+    }
+
+    @GameTest(template = "gametest_empty_5x5x5", templateNamespace = "empires", batch = "empires.m1_008a", timeoutTicks = 20)
+    public static void cancellingConstructionRefundsOnlyRemainingEscrowAndReleasesBuilder(final GameTestHelper helper) {
+        final Fixture fixture = createFixture(helper, "M1-008A Construction Cancel", true);
+        fixture.service().startConstruction(fixture.building().id(), helper.getLevel().getGameTime());
+        final BuilderJobRecord job = fixture.service().builderJobsForBuilding(fixture.building().id()).get(0);
+        final CitizenRecord builder = fixture.service().assignBuilder(
+                fixture.service().createCitizen(fixture.faction().id(), "Cancellation Builder", helper.getLevel().getGameTime()).id());
+        fixture.service().claimBuilderJob(job.id(), builder.id(), helper.getLevel().getGameTime());
+        fixture.service().startBuilderJob(job.id(), builder.id(), helper.getLevel().getGameTime());
+        fixture.service().applyConstructionWork(fixture.building().id(), 0L, 50L);
+        final BuildingRecord beforeCancel = fixture.service().findBuilding(fixture.building().id()).orElseThrow();
+        final ResourceLedger expectedRefund = ConstructionProject.remainingEscrow(fixture.blueprint().materials(), 50L,
+                fixture.blueprint().workPoints());
+        final BuildingRecord cancelled = fixture.service().cancelBuilding(fixture.building().id(), helper.getLevel().getGameTime());
+        final ResourceLedger refunded = fixture.service().findFaction(fixture.faction().id()).orElseThrow().resources();
+        final BuilderJobRecord cancelledJob = fixture.service().findBuilderJob(job.id()).orElseThrow();
+        final BuildingRecord retry = fixture.service().cancelBuilding(fixture.building().id(), helper.getLevel().getGameTime());
+        final ResourceLedger afterRetry = fixture.service().findFaction(fixture.faction().id()).orElseThrow().resources();
+        final WorldDataValidator.Report report = WorldDataValidator.validate(fixture.data());
+        helper.assertTrue(cancelled.state() == BuildingState.CANCELLED && cancelled.constructionProgress() == 50L
+                        && cancelled.placementCursor() == beforeCancel.placementCursor()
+                        && cancelled.worldSyncState() == beforeCancel.worldSyncState()
+                        && cancelled.reservedMaterials().isEmpty(),
+                "Cancellation must preserve progress and world placement metadata while clearing escrow");
+        helper.assertTrue(refunded.asMap().equals(expectedRefund.asMap())
+                        && cancelledJob.state() == BuilderJobState.CANCELLED && cancelledJob.assignedCitizenId() == null
+                        && retry.state() == BuildingState.CANCELLED && afterRetry.asMap().equals(refunded.asMap()),
+                "Cancellation must refund only remaining escrow, release the worker and never refund twice");
+        helper.assertTrue(report.passed() && report.errorCount() == 0L,
+                "Cancelled building and builder job must pass world data validation");
+        helper.succeed();
+    }
+
     private static void setWarehouseGround(final ServerLevel level, final BlockPos origin) {
         for (int x = 0; x < 3; x++) {
             for (int z = 0; z < 3; z++) {
