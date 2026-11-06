@@ -77,7 +77,7 @@ schema 4 如果缺少任务列表、任务目标/归属错误、同一 worker/�
 
 ```mcfunction
 /empires debug assign-builder <citizenUUID>
-/empires debug create-builder-job <buildingUUID> [priority]
+/empires debug create-builder-job <buildingUUID>
 /empires debug list-builder-jobs [buildingUUID]
 /empires debug claim-builder-job <jobUUID> <citizenUUID>
 /empires debug start-builder-job <jobUUID> <citizenUUID>
