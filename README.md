@@ -57,12 +57,19 @@ Minecraft Java Edition 的文明经营、基地建设与即时战略模组。项
 
 ## 开发与运行
 
-在项目根目录（包含 `gradlew.bat`）用 PowerShell 执行：
+在项目根目录（包含 `gradlew.bat`）用 PowerShell 执行一键构建与自动化测试：
 
 ```powershell
-.\gradlew.bat build
+.\scripts\test-all.ps1
+```
+
+脚本会依次运行 `build` 和 `runGameTestServer`，并在 `build/reports/empires-automation/` 保存日志与汇总。需要启动图形客户端时，再单独执行：
+
+```powershell
 .\gradlew.bat runClient
 ```
+
+详见 [自动化测试入口](docs/AUTOMATED-TESTING.md)。
 
 Gradle 8.8 目前会提示部分旧 API/插件功能已弃用；这类提示不等于当前构建失败。调查详细警告：
 
