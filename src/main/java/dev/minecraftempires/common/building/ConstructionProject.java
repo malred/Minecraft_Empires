@@ -38,7 +38,9 @@ public final class ConstructionProject {
             throw new IllegalStateException("Construction cannot start while world placement is "
                     + building.worldSyncState() + ": " + building.id());
         }
-        return building.withState(BuildingState.UNDER_CONSTRUCTION, building.worldSyncState());
+        final WorldSyncState initialSync = building.worldSyncState() == WorldSyncState.NOT_PLACED
+                ? WorldSyncState.PENDING : building.worldSyncState();
+        return building.withState(BuildingState.UNDER_CONSTRUCTION, initialSync);
     }
 
     /**
@@ -78,6 +80,7 @@ public final class ConstructionProject {
             throw new IllegalStateException("Construction work is already complete; activation is pending: " + building.id());
         }
         if (building.worldSyncState() != WorldSyncState.NOT_PLACED
+                && building.worldSyncState() != WorldSyncState.PENDING
                 && building.worldSyncState() != WorldSyncState.SYNCED) {
             throw new IllegalStateException("Construction is paused while world placement is "
                     + building.worldSyncState() + ": " + building.id());
@@ -92,7 +95,10 @@ public final class ConstructionProject {
 
         final ResourceLedger nextEscrow = remainingEscrow(
                 blueprint.materials(), targetProgress, building.workPointsRequired());
-        final BuildingRecord progressed = building.withConstructionProgress(targetProgress, nextEscrow);
+        BuildingRecord progressed = building.withConstructionProgress(targetProgress, nextEscrow);
+        if (building.worldSyncState() == WorldSyncState.NOT_PLACED) {
+            progressed = progressed.withState(BuildingState.UNDER_CONSTRUCTION, WorldSyncState.PENDING);
+        }
         if (targetProgress == building.workPointsRequired()
                 && building.worldSyncState() == WorldSyncState.SYNCED) {
             return progressed.withState(BuildingState.ACTIVE, building.worldSyncState());
