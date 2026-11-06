@@ -196,6 +196,16 @@ public final class EmpiresWorldData extends SavedData {
             if (current != null) {
                 throw new IllegalStateException("Builder job already exists: " + updated.id());
             }
+            final BuildingRecord building = buildings.get(updated.buildingId());
+            if (building == null
+                    || !updated.id().equals(BuilderJobRecord.forBuilding(
+                    building, updated.priority(), updated.createdAtGameTime()).id())
+                    || updated.state() != BuilderJobState.AVAILABLE
+                    || updated.assignedCitizenId() != null
+                    || updated.retryCount() != 0) {
+                throw new IllegalArgumentException("A new builder job must be the stable AVAILABLE job for its building: "
+                        + updated.id());
+            }
         } else {
             if (current == null || !current.sameSnapshot(expected)) {
                 throw new IllegalStateException("Builder job changed before update; reload its latest state: "
@@ -208,6 +218,26 @@ public final class EmpiresWorldData extends SavedData {
                     || current.createdAtGameTime() != updated.createdAtGameTime()
                     || current.schemaVersion() != updated.schemaVersion()) {
                 throw new IllegalArgumentException("Builder job update cannot change its identity or priority: "
+                        + updated.id());
+            }
+            if (updated.updatedAtGameTime() < current.updatedAtGameTime()
+                    || updated.retryCount() < current.retryCount()) {
+                throw new IllegalArgumentException("Builder job timestamps and retry count cannot move backwards: "
+                        + updated.id());
+            }
+            final boolean workerRemainsAssigned = current.state().requiresAssignedCitizen()
+                    && updated.state().requiresAssignedCitizen();
+            if (workerRemainsAssigned
+                    && !java.util.Objects.equals(current.assignedCitizenId(), updated.assignedCitizenId())) {
+                throw new IllegalArgumentException("A claimed builder job cannot switch workers without release: "
+                        + updated.id());
+            }
+            final boolean releasingWorker = current.state().requiresAssignedCitizen()
+                    && (updated.state() == BuilderJobState.AVAILABLE || updated.state() == BuilderJobState.BLOCKED);
+            final int expectedRetryCount = releasingWorker
+                    ? Math.addExact(current.retryCount(), 1) : current.retryCount();
+            if (updated.retryCount() != expectedRetryCount) {
+                throw new IllegalArgumentException("Builder job retry count is inconsistent with its transition: "
                         + updated.id());
             }
             if (!isAllowedBuilderJobTransition(current.state(), updated.state())) {
