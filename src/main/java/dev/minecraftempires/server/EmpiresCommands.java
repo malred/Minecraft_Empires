@@ -1,6 +1,7 @@
 package dev.minecraftempires.server;
 
 import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.arguments.LongArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import dev.minecraftempires.MinecraftEmpires;
 import dev.minecraftempires.common.civilization.CitizenRecord;
@@ -87,6 +88,16 @@ public final class EmpiresCommands {
                 .then(Commands.argument("faction", StringArgumentType.word())
                         .executes(context -> seedResources(
                                 context.getSource(), StringArgumentType.getString(context, "faction")))));
+
+        debug.then(Commands.literal("add-resource")
+                .then(Commands.argument("faction", StringArgumentType.word())
+                        .then(Commands.argument("resource", ResourceLocationArgument.id())
+                                .then(Commands.argument("amount", LongArgumentType.longArg(1L))
+                                        .executes(context -> addResource(
+                                                context.getSource(),
+                                                StringArgumentType.getString(context, "faction"),
+                                                ResourceLocationArgument.getId(context, "resource"),
+                                                LongArgumentType.getLong(context, "amount")))))));
 
         debug.then(Commands.literal("list-factions").executes(context -> {
             final CivilizationService service = CivilizationService.forLevel(context.getSource().getLevel());
@@ -206,6 +217,38 @@ public final class EmpiresCommands {
             service.setResources(factionId, ledger);
             source.sendSuccess(() -> Component.literal("Seeded test resources for faction " + factionId
                     + ": wood=128, stone=64, food=32"), true);
+            return 1;
+        } catch (IllegalArgumentException | IllegalStateException exception) {
+            source.sendFailure(Component.literal(exception.getMessage()));
+            return 0;
+        }
+    }
+
+    /**
+     * Adds a positive amount of a specific resource to a faction's available ledger.
+     * This OP-only helper is intended for development/testing; it never replaces the full ledger.
+     */
+    private static int addResource(
+            final CommandSourceStack source,
+            final String factionText,
+            final ResourceLocation resourceId,
+            final long amount
+    ) {
+        try {
+            final UUID factionId = UUID.fromString(factionText);
+            final CivilizationService service = CivilizationService.forLevel(source.getLevel());
+            final FactionRecord faction = service.findFaction(factionId)
+                    .orElseThrow(() -> new IllegalArgumentException("Faction does not exist: " + factionId));
+            final long previousAmount = faction.resources().get(resourceId);
+            final ResourceLedger updatedResources = faction.resources().plus(resourceId, amount);
+            service.setResources(factionId, updatedResources);
+            final long totalAmount = updatedResources.get(resourceId);
+            source.sendSuccess(() -> Component.literal(
+                    "Added resource | faction=" + factionId
+                            + " | resource=" + resourceId
+                            + " | added=" + amount
+                            + " | previous=" + previousAmount
+                            + " | total=" + totalAmount), true);
             return 1;
         } catch (IllegalArgumentException | IllegalStateException exception) {
             source.sendFailure(Component.literal(exception.getMessage()));
