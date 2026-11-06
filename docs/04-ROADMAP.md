@@ -57,7 +57,7 @@ flowchart TD
 - M1-002 Capital uniqueness service。（PASS：用户本地 build 成功、14/14 GameTests 通过；原存档 status/validate PASS，0 errors/0 warnings）
 - M1-003 放置预检查（地形、边界、重叠、势力权限）。（PASS：用户本地 22/22 GameTests 通过；原存档 status 正常、validate PASS，0 errors/0 warnings；本次贴出的片段未包含 Gradle 最终构建行）
 - M1-004 ResourceLedger 与原子预留。（**PASS**：用户本地 29/29 Forge GameTests 通过；「新的世界2」worldId/schema 保持不变，status 正常且 validate PASS，0 errors/0 warnings；贴出的日志片段未包含 Gradle 最终构建行，Dedicated Server/真实多人测试仍待执行）
-- M1-005 ConstructionProject 状态机。（代码与 8 项 GameTests 已提交开发分支；预计完整回归 37 项，待本地 build/GameTest 与「新的世界2」存档回归验收）
+- M1-005 ConstructionProject 状态机。（代码与 9 项 GameTests 已提交开发分支；预计完整回归 38 项，待本地 build/GameTest 与「新的世界2」存档回归验收）
 - M1-006 Builder Job。
 - M1-007 分批方块施工。
 - M1-008 保存/恢复/取消/损坏。
