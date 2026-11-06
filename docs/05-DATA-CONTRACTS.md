@@ -42,6 +42,19 @@ buildingId、blueprintId、blueprintVersion、ownerFactionId、settlementId、di
 
 jobId、jobType、ownerFactionId、targetId、assignedCitizenId、state、priority、createdAtGameTime、updatedAtGameTime、retryCount、reservationIds、schemaVersion。
 
+### BuilderJobRecord（M1-006）
+
+BuilderJobRecord 是施工项目的持久化工作分配，不是居民实体或路径对象。字段：
+
+- `id`：稳定 UUID；当前由 builder-job 命名空间和 Building UUID 确定性派生。
+- `buildingId`、`ownerFactionId`、`settlementId`：目标建筑及归属快照，必须与 BuildingRecord 一致。
+- `assignedCitizenId`：可空；CLAIMED/TRAVELLING/WORKING 必须有值，AVAILABLE/BLOCKED 必须为空。
+- `state`：AVAILABLE、CLAIMED、TRAVELLING、WORKING、BLOCKED、COMPLETED、FAILED、CANCELLED。
+- `priority`：0–100 的任务优先级；默认 50。
+- `retryCount`、`createdAtGameTime`、`updatedAtGameTime`、`schemaVersion`。
+
+每个 UNDER_CONSTRUCTION BuildingRecord 必须恰好有一个非终态 BuilderJobRecord；每个居民最多领取一个活动 BuilderJob。领取者必须是 ACTIVE、`empires:builder` 职业、归属同一 Faction；若 CitizenRecord 已绑定 homeSettlementId，该聚落必须与任务目标聚落一致。completed job 是历史记录，建筑之后进入 DAMAGED/DEMOLISHED 等状态不应使历史任务失效。
+
 ## 3. 状态枚举
 
 ### Citizen lifeState
@@ -153,12 +166,15 @@ M1-004 建筑材料预留采用全额 escrow：FactionRecord.resources 代表可
 
 M1-005 施工进度继续保存在同一 BuildingRecord 中：RESERVED → UNDER_CONSTRUCTION 时必须保留完整初始 escrow。每次累计施工进度更新与剩余 escrow 在同一 SavedData mutation 中提交；对于每种资源，已消费总量为 floor(totalCost × completedWork / totalWork)，剩余 escrow 为 totalCost − consumed。所有批次都根据累计进度计算，不能按每批独立取整。expectedProgress 是施工批次的 compare-and-set 令牌；每次成功提交后旧令牌失效，任何旧令牌重放都必须拒绝且不得再次推进进度/减少 escrow。若未来网络网关要在重试时返回原结果，必须另行持久化 requestId 回执，不能仅凭工作量和进度推断请求身份。ACTIVE 的必要条件为 completedWork=workPointsRequired、escrow 为空且 worldSyncState=SYNCED。placementCursor 与 constructionProgress 是不同维度，不可互相代替。
 
+M1-006 Builder Job 的创建与施工启动一起提交：`RESERVED → UNDER_CONSTRUCTION` 的 SavedData mutation 同时写入唯一 AVAILABLE BuilderJobRecord；施工完成并转为 ACTIVE 时，同一 mutation 将关联活动任务转为 COMPLETED。任务领取使用记录快照 compare-and-set，验证 worker 的 ACTIVE 状态、builder profession、Faction/Settlement 归属及并发唯一性。释放/阻塞任务时清除 assignedCitizenId 并递增 retryCount；BLOCKED → AVAILABLE 重试不清除历史计数。任务只保存逻辑 UUID，不通过任务状态强制加载区块。
+
 ## 7. 存档迁移
 
 - 根数据含 schemaVersion。
 - 每次 schema 变化编写 `vN_to_vN+1` migration。
 - 迁移前备份/保留旧数据字段，迁移后验证关键引用。
 - 未知更高版本时拒绝写入并给出清晰提示，防止旧版模组降级覆盖新存档。
+- M1-006 将世界级 SavedData schema 从 3 升至 4，新增必需的 `builder_jobs` 列表；CitizenRecord 和 BuildingRecord 自身 schema 不变。v3 → v4 迁移为每个既有 UNDER_CONSTRUCTION 建筑生成一个稳定 ID 的 AVAILABLE BuilderJobRecord，不修改 faction ledger、citizen、building、settlement 或真实世界方块。v4 缺少任务列表、任务目标引用不一致、活动任务重复或 worker 不符合资格时，保留原始 NBT 并将世界数据置为只读，不尝试猜测修复。
 - 数据迁移测试使用旧版本 fixture。
 
 ## 8. 同步 DTO
