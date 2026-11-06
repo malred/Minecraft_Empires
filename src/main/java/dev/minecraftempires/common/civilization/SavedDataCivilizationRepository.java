@@ -40,4 +40,11 @@ public final class SavedDataCivilizationRepository implements CivilizationReposi
     @Override public void saveBuildingReservation(final FactionRecord updatedFaction, final BuildingRecord reservedBuilding) {
         data.putBuildingReservation(updatedFaction, reservedBuilding);
     }
+
+    @Override public void saveConstructionUpdate(
+            final BuildingRecord expectedCurrent,
+            final BuildingRecord updatedBuilding
+    ) {
+        data.putConstructionUpdate(expectedCurrent, updatedBuilding);
+    }
 }
