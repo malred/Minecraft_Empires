@@ -26,3 +26,10 @@
 - User-side `gradlew.bat build` after M0-012 additions: NOT RUN.
 - User-side `gradlew.bat runGameTestServer`: NOT RUN.
 - Forge client / Dedicated Server regression after M0-012 additions: NOT RUN.
+
+
+## User verification update — 2026-11-06
+
+- After adding the M0-012 GameTest suite and placement-service test overloads, user ran `gradlew.bat build`: PASS, BUILD SUCCESSFUL in 38s, 7 actionable tasks.
+- Two ResourceLocation(String, String) removal warnings are in the GameTest fixture constants; they are non-fatal. BuildingPlacementService also emits a generic deprecated API note.
+- `gradlew.bat runGameTestServer`: NOT RUN yet.
