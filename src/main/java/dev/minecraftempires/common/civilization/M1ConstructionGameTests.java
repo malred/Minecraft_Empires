@@ -544,6 +544,26 @@ public final class M1ConstructionGameTests {
         helper.succeed();
     }
 
+    @GameTest(template = "gametest_empty_5x5x5", templateNamespace = "empires", batch = "empires.m1_008a", timeoutTicks = 20)
+    public static void cancelledPendingConstructionDoesNotPlaceMoreBlocks(final GameTestHelper helper) {
+        final Fixture fixture = createFixture(helper, "M1-008A Stop Pending Placement", false);
+        setWarehouseGround(helper.getLevel(), fixture.building().origin());
+        fixture.service().startConstruction(fixture.building().id(), helper.getLevel().getGameTime());
+        fixture.service().applyConstructionWork(fixture.building().id(), 0L, 50L);
+        final BuildingRecord cancelled = fixture.service().cancelBuilding(
+                fixture.building().id(), helper.getLevel().getGameTime());
+        final int placed = BuildingPlacementService.processPending(
+                helper.getLevel().getServer(), fixture.data(), fixture.service());
+        final BuildingRecord afterTick = fixture.service().findBuilding(fixture.building().id()).orElseThrow();
+        helper.assertTrue(cancelled.state() == BuildingState.CANCELLED && placed == 0
+                        && afterTick.placementCursor() == 0
+                        && afterTick.worldSyncState() == WorldSyncState.PENDING,
+                "A cancelled PENDING project must not place additional blocks on later server ticks");
+        helper.assertTrue(helper.getLevel().getBlockState(fixture.building().origin()).isAir(),
+                "Cancellation must leave the world untouched rather than placing or deleting blocks");
+        helper.succeed();
+    }
+
     private static void setWarehouseGround(final ServerLevel level, final BlockPos origin) {
         for (int x = 0; x < 3; x++) {
             for (int z = 0; z < 3; z++) {
