@@ -85,4 +85,17 @@ OP-only：
 
 ## 本地验收状态
 
-代码与 7 项 GameTests 已提交开发分支，等待用户本地 build、完整 GameTest suite 和「新的世界2」回归验收后再标记 PASS。
+**PASS — 29/29 Forge GameTests 与既有存档回归通过。**
+
+用户本地提供的测试日志确认：
+
+- GameTestServer 报告 `29 GAME TESTS COMPLETE`，并明确输出 `All 29 required tests passed :)`。
+- 客户端成功进入既有世界「新的世界2」；`/empires debug status` 显示 schema=3、worldId=`6ba6a5f4-e5f9-4e01-bfaa-f86a0aeac64c`、factions=1、settlements=2、citizens=3、readOnly=false。
+- `/empires debug validate` 报告 PASS：buildings=2、errors=0、warnings=0，无一致性问题。
+- 单人服务器正常保存并退出；日志显示主世界及下界、末地的区块均已保存，Minecraft Empires server lifecycle 正常停止。
+
+验收边界：
+
+- 用户贴出的日志片段未包含 Gradle 的最终 `BUILD SUCCESSFUL` 行，因此**单独的 Gradle build 结果未从该片段确认**；29 项 GameTests 已实际通过。
+- Dedicated Server 启动/停止与真实多人权限测试尚未提供结果，仍待专项验收。
+- 本任务没有增加 SavedData schema 字段或版本；既有世界 worldId 与 schema 保持不变，无需重建或迁移存档。
