@@ -3,6 +3,7 @@ package dev.minecraftempires.common.civilization;
 import dev.minecraftempires.MinecraftEmpires;
 import dev.minecraftempires.common.building.BlueprintCatalog;
 import dev.minecraftempires.common.building.BlueprintDefinition;
+import dev.minecraftempires.common.building.ConstructionProject;
 import dev.minecraftempires.common.building.BuildingRecord;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -284,6 +285,138 @@ public final class EmpiresWorldData extends SavedData {
         factions.put(updatedFaction.id(), updatedFaction);
         buildings.put(reservedBuilding.id(), reservedBuilding);
         settlements.put(settlement.id(), indexedSettlement);
+
+    /**
+     * Compare-and-set write for construction project progress. The faction inventory
+     * is not touched here: reserved materials are consumed only by reducing the
+     * project's escrow in the same building-record mutation.
+     */
+    void putConstructionUpdate(final BuildingRecord expectedCurrent, final BuildingRecord updatedBuilding) {
+        ensureWritable();
+        final BuildingRecord current = buildings.get(expectedCurrent.id());
+        if (current == null) {
+            throw new IllegalArgumentException("Construction building does not exist: " + expectedCurrent.id());
+        }
+        if (!sameConstructionSnapshot(current, expectedCurrent)) {
+            throw new IllegalStateException("Construction project changed before update; reload its latest progress: "
+                    + current.id());
+        }
+        if (!sameBuildingIdentity(current, updatedBuilding)) {
+            throw new IllegalArgumentException("Construction update cannot change building identity or placement: "
+                    + current.id());
+        }
+
+        final BlueprintDefinition blueprint = BlueprintCatalog.find(current.blueprintId())
+                .orElseThrow(() -> new IllegalStateException("Construction references unknown blueprint: "
+                        + current.blueprintId()));
+        if (current.blueprintVersion() != blueprint.version()
+                || current.workPointsRequired() != blueprint.workPoints()
+                || !current.templateChecksum().equals(blueprint.templateChecksum())) {
+            throw new IllegalStateException("Construction blueprint definition does not match building "
+                    + current.id());
+        }
+
+        if (current.state() == dev.minecraftempires.common.building.BuildingState.RESERVED) {
+            if (updatedBuilding.state() != dev.minecraftempires.common.building.BuildingState.UNDER_CONSTRUCTION
+                    || current.constructionProgress() != 0L
+                    || updatedBuilding.constructionProgress() != 0L
+                    || !current.reservedMaterials().asMap().equals(blueprint.materials().asMap())
+                    || !updatedBuilding.reservedMaterials().asMap().equals(current.reservedMaterials().asMap())
+                    || (current.worldSyncState() != dev.minecraftempires.common.building.WorldSyncState.NOT_PLACED
+                    && current.worldSyncState() != dev.minecraftempires.common.building.WorldSyncState.SYNCED)) {
+                throw new IllegalStateException("Invalid RESERVED -> UNDER_CONSTRUCTION transition for building "
+                        + current.id());
+            }
+        } else if (current.state() == dev.minecraftempires.common.building.BuildingState.UNDER_CONSTRUCTION) {
+            if (updatedBuilding.state() != dev.minecraftempires.common.building.BuildingState.UNDER_CONSTRUCTION
+                    && updatedBuilding.state() != dev.minecraftempires.common.building.BuildingState.ACTIVE) {
+                throw new IllegalStateException("Invalid construction state transition for building " + current.id()
+                        + ": UNDER_CONSTRUCTION -> " + updatedBuilding.state());
+            }
+            if (updatedBuilding.constructionProgress() < current.constructionProgress()
+                    || updatedBuilding.constructionProgress() > current.workPointsRequired()) {
+                throw new IllegalArgumentException("Construction progress must be monotonic and within project bounds: "
+                        + current.id());
+            }
+            final ResourceLedger currentExpectedEscrow = ConstructionProject.remainingEscrow(
+                    blueprint.materials(), current.constructionProgress(), current.workPointsRequired());
+            if (!current.reservedMaterials().asMap().equals(currentExpectedEscrow.asMap())) {
+                throw new IllegalStateException("Current construction escrow does not match its progress: "
+                        + current.id());
+            }
+            final ResourceLedger updatedExpectedEscrow = ConstructionProject.remainingEscrow(
+                    blueprint.materials(), updatedBuilding.constructionProgress(), updatedBuilding.workPointsRequired());
+            if (!updatedBuilding.reservedMaterials().asMap().equals(updatedExpectedEscrow.asMap())) {
+                throw new IllegalArgumentException("Updated construction escrow does not match cumulative work: "
+                        + current.id());
+            }
+
+            final boolean completeAndSynced = updatedBuilding.constructionProgress()
+                    == updatedBuilding.workPointsRequired()
+                    && updatedBuilding.worldSyncState()
+                    == dev.minecraftempires.common.building.WorldSyncState.SYNCED;
+            if (updatedBuilding.state() == dev.minecraftempires.common.building.BuildingState.ACTIVE
+                    && !completeAndSynced) {
+                throw new IllegalStateException("ACTIVE requires complete work, empty escrow, and SYNCED blocks: "
+                        + current.id());
+            }
+            if (updatedBuilding.state() == dev.minecraftempires.common.building.BuildingState.UNDER_CONSTRUCTION
+                    && completeAndSynced) {
+                throw new IllegalStateException("A completed, SYNCED project must transition to ACTIVE: "
+                        + current.id());
+            }
+            if (updatedBuilding.state() == current.state()
+                    && updatedBuilding.constructionProgress() == current.constructionProgress()) {
+                throw new IllegalArgumentException("Construction update contains no progress or state change: "
+                        + current.id());
+            }
+        } else {
+            throw new IllegalStateException("Construction updates are not allowed from state "
+                    + current.state() + ": " + current.id());
+        }
+
+        final SettlementRecord settlement = settlements.get(current.settlementId());
+        if (settlement == null || !settlement.ownerFactionId().equals(current.ownerFactionId())
+                || !settlement.dimensionId().equals(current.dimensionId())) {
+            throw new IllegalStateException("Construction building has an invalid owning settlement: " + current.id());
+        }
+
+        buildings.put(updatedBuilding.id(), updatedBuilding);
+        settlements.put(settlement.id(), settlement.withBuildingId(updatedBuilding.id()));
+        setDirty();
+    }
+
+    private static boolean sameConstructionSnapshot(
+            final BuildingRecord current,
+            final BuildingRecord expected
+    ) {
+        return sameBuildingIdentity(current, expected)
+                && current.state() == expected.state()
+                && current.constructionProgress() == expected.constructionProgress()
+                && current.reservedMaterials().asMap().equals(expected.reservedMaterials().asMap());
+    }
+
+    private static boolean sameBuildingIdentity(
+            final BuildingRecord current,
+            final BuildingRecord candidate
+    ) {
+        return current.id().equals(candidate.id())
+                && current.blueprintId().equals(candidate.blueprintId())
+                && current.blueprintVersion() == candidate.blueprintVersion()
+                && current.ownerFactionId().equals(candidate.ownerFactionId())
+                && current.settlementId().equals(candidate.settlementId())
+                && current.dimensionId().equals(candidate.dimensionId())
+                && current.origin().equals(candidate.origin())
+                && current.rotationDegrees() == candidate.rotationDegrees()
+                && current.placementCursor() == candidate.placementCursor()
+                && current.workPointsRequired() == candidate.workPointsRequired()
+                && current.durability() == candidate.durability()
+                && current.worldSyncState() == candidate.worldSyncState()
+                && current.templateChecksum().equals(candidate.templateChecksum())
+                && current.createdAtGameTime() == candidate.createdAtGameTime()
+                && current.schemaVersion() == candidate.schemaVersion();
+    }
+
         setDirty();
     }
 
