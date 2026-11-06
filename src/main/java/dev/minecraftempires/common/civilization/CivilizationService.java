@@ -41,6 +41,15 @@ public final class CivilizationService {
     }
     public Optional<CitizenRecord> findCitizen(final UUID id) { return repository.findCitizen(id); }
 
+    public List<BuilderJobRecord> builderJobs() { return repository.builderJobs(); }
+    public Optional<BuilderJobRecord> findBuilderJob(final UUID id) { return repository.findBuilderJob(id); }
+    public List<BuilderJobRecord> builderJobsForBuilding(final UUID buildingId) {
+        if (repository.findBuilding(buildingId).isEmpty()) {
+            throw new IllegalArgumentException("Building does not exist: " + buildingId);
+        }
+        return repository.builderJobsForBuilding(buildingId);
+    }
+
     public List<BuildingRecord> buildings() { return repository.buildings(); }
 
     public List<BuildingRecord> buildingsForSettlement(final UUID settlementId) {
@@ -149,7 +158,11 @@ public final class CivilizationService {
         worldData.ensureWritable();
         final BuildingRecord building = repository.findBuilding(buildingId)
                 .orElseThrow(() -> new IllegalArgumentException("Building does not exist: " + buildingId));
-        if (building.state() == BuildingState.UNDER_CONSTRUCTION || building.state() == BuildingState.ACTIVE) {
+        if (building.state() == BuildingState.UNDER_CONSTRUCTION) {
+            ensureBuilderJob(building, Math.max(worldData.simulationClock(), building.createdAtGameTime()));
+            return building;
+        }
+        if (building.state() == BuildingState.ACTIVE) {
             return building;
         }
         final BlueprintDefinition blueprint = BlueprintCatalog.find(building.blueprintId())
@@ -261,6 +274,174 @@ public final class CivilizationService {
             }
         }
         repository.saveFaction(faction.withCapitalSettlement(settlementId));
+    }
+
+    /** Promotes an active logical citizen to the builder profession. */
+    public CitizenRecord assignBuilder(final UUID citizenId) {
+        worldData.ensureWritable();
+        final CitizenRecord citizen = repository.findCitizen(citizenId)
+                .orElseThrow(() -> new IllegalArgumentException("Citizen does not exist: " + citizenId));
+        if (citizen.status() != CitizenStatus.ACTIVE) {
+            throw new IllegalArgumentException("Only ACTIVE citizens can become builders: " + citizenId);
+        }
+        if (citizen.professionId().equals(BuilderJobRecord.BUILDER_PROFESSION_ID)) {
+            return citizen;
+        }
+        for (BuilderJobRecord job : repository.builderJobs()) {
+            if (job.isActive() && citizenId.equals(job.assignedCitizenId())) {
+                throw new IllegalStateException("Release active builder job " + job.id()
+                        + " before changing this citizen's profession");
+            }
+        }
+        final CitizenRecord updated = citizen.withProfession(BuilderJobRecord.BUILDER_PROFESSION_ID);
+        repository.saveCitizen(updated);
+        return updated;
+    }
+
+    /**
+     * Ensures that an in-progress construction project has its one durable builder job.
+     * This is also the recovery path for a project migrated from a pre-job save.
+     */
+    public BuilderJobRecord createBuilderJob(final UUID buildingId, final int priority, final long gameTime) {
+        worldData.ensureWritable();
+        final BuildingRecord building = repository.findBuilding(buildingId)
+                .orElseThrow(() -> new IllegalArgumentException("Building does not exist: " + buildingId));
+        if (building.state() != BuildingState.UNDER_CONSTRUCTION) {
+            throw new IllegalStateException("Builder jobs require an UNDER_CONSTRUCTION building: " + buildingId);
+        }
+        for (BuilderJobRecord existing : repository.builderJobsForBuilding(buildingId)) {
+            if (existing.isActive()) {
+                if (existing.priority() != priority) {
+                    return existing;
+                }
+                return existing;
+            }
+        }
+        final BuilderJobRecord created = BuilderJobRecord.forBuilding(building, priority, gameTime);
+        repository.saveBuilderJob(null, created);
+        return created;
+    }
+
+    private BuilderJobRecord ensureBuilderJob(final BuildingRecord building, final long gameTime) {
+        for (BuilderJobRecord existing : repository.builderJobsForBuilding(building.id())) {
+            if (existing.isActive()) {
+                return existing;
+            }
+        }
+        final BuilderJobRecord created = BuilderJobRecord.forBuilding(
+                building, BuilderJobRecord.DEFAULT_PRIORITY, gameTime);
+        repository.saveBuilderJob(null, created);
+        return created;
+    }
+
+    /** Claims an AVAILABLE job for an eligible builder; one citizen can hold only one active job. */
+    public BuilderJobRecord claimBuilderJob(
+            final UUID jobId,
+            final UUID citizenId,
+            final long gameTime
+    ) {
+        worldData.ensureWritable();
+        final BuilderJobRecord job = repository.findBuilderJob(jobId)
+                .orElseThrow(() -> new IllegalArgumentException("Builder job does not exist: " + jobId));
+        final BuildingRecord building = repository.findBuilding(job.buildingId())
+                .orElseThrow(() -> new IllegalStateException("Builder job target building is missing: " + job.buildingId()));
+        if (building.state() != BuildingState.UNDER_CONSTRUCTION) {
+            throw new IllegalStateException("Builder job target is not UNDER_CONSTRUCTION: " + building.id());
+        }
+        final CitizenRecord citizen = repository.findCitizen(citizenId)
+                .orElseThrow(() -> new IllegalArgumentException("Citizen does not exist: " + citizenId));
+        if (citizen.status() != CitizenStatus.ACTIVE
+                || !citizen.ownerFactionId().equals(job.ownerFactionId())
+                || !citizen.professionId().equals(BuilderJobRecord.BUILDER_PROFESSION_ID)
+                || (citizen.homeSettlementId() != null
+                && !citizen.homeSettlementId().equals(job.settlementId()))) {
+            throw new IllegalArgumentException("Assigned citizen must be an ACTIVE builder of the owning faction "
+                    + "and settlement: " + citizenId);
+        }
+        for (BuilderJobRecord other : repository.builderJobs()) {
+            if (other.isActive() && citizenId.equals(other.assignedCitizenId())) {
+                throw new IllegalStateException("Citizen already has active builder job " + other.id());
+            }
+        }
+        final BuilderJobRecord claimed = job.claim(citizenId, gameTime);
+        repository.saveBuilderJob(job, claimed);
+        return claimed;
+    }
+
+    public BuilderJobRecord startBuilderJob(
+            final UUID jobId,
+            final UUID citizenId,
+            final long gameTime
+    ) {
+        worldData.ensureWritable();
+        final BuilderJobRecord job = requireAssignedBuilderJob(jobId, citizenId);
+        if (job.state() == BuilderJobState.WORKING) {
+            return job;
+        }
+        final BuilderJobRecord working = job.startWorking(gameTime);
+        repository.saveBuilderJob(job, working);
+        return working;
+    }
+
+    public BuilderJobRecord releaseBuilderJob(
+            final UUID jobId,
+            final UUID citizenId,
+            final long gameTime
+    ) {
+        worldData.ensureWritable();
+        final BuilderJobRecord job = requireAssignedBuilderJob(jobId, citizenId);
+        final BuilderJobRecord released = job.release(gameTime);
+        repository.saveBuilderJob(job, released);
+        return released;
+    }
+
+    public BuilderJobRecord blockBuilderJob(
+            final UUID jobId,
+            final UUID citizenId,
+            final long gameTime
+    ) {
+        worldData.ensureWritable();
+        final BuilderJobRecord job = requireAssignedBuilderJob(jobId, citizenId);
+        final BuilderJobRecord blocked = job.block(gameTime);
+        repository.saveBuilderJob(job, blocked);
+        return blocked;
+    }
+
+    public BuilderJobRecord retryBuilderJob(final UUID jobId, final long gameTime) {
+        worldData.ensureWritable();
+        final BuilderJobRecord job = repository.findBuilderJob(jobId)
+                .orElseThrow(() -> new IllegalArgumentException("Builder job does not exist: " + jobId));
+        final BuilderJobRecord retried = job.retry(gameTime);
+        repository.saveBuilderJob(job, retried);
+        return retried;
+    }
+
+    /** A job can complete only after the associated construction aggregate is ACTIVE. */
+    public BuilderJobRecord completeBuilderJob(final UUID jobId, final long gameTime) {
+        worldData.ensureWritable();
+        final BuilderJobRecord job = repository.findBuilderJob(jobId)
+                .orElseThrow(() -> new IllegalArgumentException("Builder job does not exist: " + jobId));
+        final BuildingRecord building = repository.findBuilding(job.buildingId())
+                .orElseThrow(() -> new IllegalStateException("Builder job target building is missing: " + job.buildingId()));
+        if (building.state() != BuildingState.ACTIVE) {
+            throw new IllegalStateException("Builder job cannot complete before its building is ACTIVE: "
+                    + building.id());
+        }
+        if (job.state() == BuilderJobState.COMPLETED) {
+            return job;
+        }
+        final BuilderJobRecord completed = job.complete(gameTime);
+        repository.saveBuilderJob(job, completed);
+        return completed;
+    }
+
+    private BuilderJobRecord requireAssignedBuilderJob(final UUID jobId, final UUID citizenId) {
+        final BuilderJobRecord job = repository.findBuilderJob(jobId)
+                .orElseThrow(() -> new IllegalArgumentException("Builder job does not exist: " + jobId));
+        if (!citizenId.equals(job.assignedCitizenId())) {
+            throw new IllegalStateException("Citizen is not the assigned worker for builder job " + jobId);
+        }
+        return job;
     }
 
     /** Creates a logical citizen; it deliberately does not spawn a Minecraft entity. */
