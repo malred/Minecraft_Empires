@@ -403,12 +403,6 @@ public final class M0IntegrationGameTests {
             batch = "empires.m1_002",
             timeoutTicks = 20
     )
-    @GameTest(
-            template = "gametest_empty_5x5x5",
-            templateNamespace = "empires",
-            batch = "empires.m1_002",
-            timeoutTicks = 20
-    )
     public static void capitalMustMatchExistingHeadquartersSettlement(final GameTestHelper helper) {
         final EmpiresWorldData data = new EmpiresWorldData();
         final CivilizationService service = new CivilizationService(new SavedDataCivilizationRepository(data));
@@ -434,6 +428,12 @@ public final class M0IntegrationGameTests {
         helper.succeed();
     }
 
+    @GameTest(
+            template = "gametest_empty_5x5x5",
+            templateNamespace = "empires",
+            batch = "empires.m1_002",
+            timeoutTicks = 20
+    )
     public static void validatorDetectsDuplicateFactionHeadquarters(final GameTestHelper helper) {
         final EmpiresWorldData data = new EmpiresWorldData();
         final CivilizationService service = new CivilizationService(new SavedDataCivilizationRepository(data));
