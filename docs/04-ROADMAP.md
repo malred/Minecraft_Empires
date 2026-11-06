@@ -55,7 +55,7 @@ flowchart TD
 
 - M1-001 HQ 物品/方块/蓝图注册。（用户本地 build + 9/9 GameTests PASS；创造物品栏人工确认待补）
 - M1-002 Capital uniqueness service。（PASS：用户本地 build 成功、14/14 GameTests 通过；原存档 status/validate PASS，0 errors/0 warnings）
-- M1-003 放置预检查（地形、边界、重叠、势力权限）。（代码与 8 项 GameTests 已提交 main；待本地验收）
+- M1-003 放置预检查（地形、边界、重叠、势力权限）。（PASS：用户本地 22/22 GameTests 通过；原存档 status 正常、validate PASS，0 errors/0 warnings；本次贴出的片段未包含 Gradle 最终构建行）
 - M1-004 ResourceLedger 与原子预留。
 - M1-005 ConstructionProject 状态机。
 - M1-006 Builder Job。
