@@ -6,6 +6,7 @@ import dev.minecraftempires.MinecraftEmpires;
 import dev.minecraftempires.common.building.BlueprintCatalog;
 import dev.minecraftempires.common.building.BlueprintDefinition;
 import dev.minecraftempires.common.building.BuildingRecord;
+import dev.minecraftempires.common.building.BuildingPlacementService;
 import dev.minecraftempires.common.civilization.CivilizationService;
 import dev.minecraftempires.common.civilization.EmpiresWorldData;
 import net.minecraft.commands.CommandSourceStack;
@@ -91,20 +92,21 @@ public final class BuildingCommands {
             final UUID settlementId = UUID.fromString(settlementText);
             final BlockPos origin = BlockPos.containing(source.getPosition());
             final CivilizationService service = CivilizationService.forLevel(source.getLevel());
-            final BuildingRecord building = service.planBuilding(
-                    settlementId,
-                    blueprintId,
-                    source.getLevel().dimension().location(),
-                    origin,
-                    rotationDegrees,
-                    source.getLevel().getGameTime()
-            );
+            final var settlement = service.findSettlement(settlementId)
+                    .orElseThrow(() -> new IllegalArgumentException("Settlement does not exist: " + settlementId));
+            // Debug commands are OP-only; the owner context is resolved from authoritative server data.
+            // Normal player/AI command gateways must supply their authenticated faction ID here.
+            final BuildingPlacementService.PlanResult result = BuildingPlacementService.planBuilding(
+                    source.getLevel(), service, settlement.ownerFactionId(), settlementId,
+                    blueprintId, origin, rotationDegrees, source.getLevel().getGameTime());
+            final BuildingRecord building = result.building();
             source.sendSuccess(() -> Component.literal(
-                    "Planned building " + building.id() + " | blueprint=" + building.blueprintId()
+                    "Placement precheck PASS. Planned building " + building.id()
+                            + " | blueprint=" + building.blueprintId()
                             + " | state=" + building.state() + " | origin=" + building.origin()
                             + " | rotation=" + building.rotationDegrees()
-                            + " | progress=" + building.constructionProgress() + "/" + building.workPointsRequired()
-                            + " | reservedMaterials=" + building.reservedMaterials().asMap().size()
+                            + " | templateBlocks=" + result.totalBlocks()
+                            + " | templateChecksum=" + result.templateChecksum()
                             + " | worldSync=" + building.worldSyncState()
                             + " | No blocks placed and no resources deducted."), true);
             return 1;
