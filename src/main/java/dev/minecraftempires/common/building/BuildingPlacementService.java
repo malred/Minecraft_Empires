@@ -223,9 +223,11 @@ public final class BuildingPlacementService {
                 service.updateBuildingPlacement(snapshot.withPlacementCursor(
                         snapshot.placementCursor(), WorldSyncState.PENDING));
             }
-            if (snapshot.worldSyncState() != WorldSyncState.PENDING
+            if ((snapshot.state() != BuildingState.PLANNED
+                    && snapshot.state() != BuildingState.UNDER_CONSTRUCTION)
+                    || (snapshot.worldSyncState() != WorldSyncState.PENDING
                     && !(snapshot.state() == BuildingState.UNDER_CONSTRUCTION
-                    && snapshot.worldSyncState() == WorldSyncState.NOT_PLACED)) {
+                    && snapshot.worldSyncState() == WorldSyncState.NOT_PLACED))) {
                 continue;
             }
 
