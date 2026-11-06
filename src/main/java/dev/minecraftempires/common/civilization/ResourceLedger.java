@@ -51,6 +51,66 @@ public final class ResourceLedger {
         return amounts;
     }
 
+    public boolean isEmpty() {
+        return amounts.isEmpty();
+    }
+
+    /** Returns true when this ledger can cover every entry in the requested cost ledger. */
+    public boolean contains(final ResourceLedger required) {
+        Objects.requireNonNull(required, "required");
+        for (Map.Entry<ResourceLocation, Long> entry : required.amounts.entrySet()) {
+            if (get(entry.getKey()) < entry.getValue()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Returns a new ledger after subtracting every requested amount.
+     * The current instance remains unchanged when any resource is insufficient.
+     */
+    public ResourceLedger minus(final ResourceLedger cost) {
+        Objects.requireNonNull(cost, "cost");
+        if (!contains(cost)) {
+            for (Map.Entry<ResourceLocation, Long> entry : cost.amounts.entrySet()) {
+                final long available = get(entry.getKey());
+                if (available < entry.getValue()) {
+                    throw new IllegalArgumentException("Insufficient resource " + entry.getKey()
+                            + ": required=" + entry.getValue() + ", available=" + available
+                            + ", missing=" + (entry.getValue() - available));
+                }
+            }
+        }
+        final Map<ResourceLocation, Long> copy = new LinkedHashMap<>(amounts);
+        for (Map.Entry<ResourceLocation, Long> entry : cost.amounts.entrySet()) {
+            final long remaining = get(entry.getKey()) - entry.getValue();
+            if (remaining == 0L) {
+                copy.remove(entry.getKey());
+            } else {
+                copy.put(entry.getKey(), remaining);
+            }
+        }
+        return of(copy);
+    }
+
+    /** Returns a new ledger with another ledger added, rejecting arithmetic overflow. */
+    public ResourceLedger plus(final ResourceLedger other) {
+        Objects.requireNonNull(other, "other");
+        final Map<ResourceLocation, Long> copy = new LinkedHashMap<>(amounts);
+        for (Map.Entry<ResourceLocation, Long> entry : other.amounts.entrySet()) {
+            final long current = get(entry.getKey());
+            final long updated;
+            try {
+                updated = Math.addExact(current, entry.getValue());
+            } catch (ArithmeticException exception) {
+                throw new IllegalArgumentException("Resource amount overflow: " + entry.getKey(), exception);
+            }
+            copy.put(entry.getKey(), updated);
+        }
+        return of(copy);
+    }
+
     public ResourceLedger withAmount(final ResourceLocation resourceId, final long amount) {
         Objects.requireNonNull(resourceId, "resourceId");
         if (amount < 0L) {
