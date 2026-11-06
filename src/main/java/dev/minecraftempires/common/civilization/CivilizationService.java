@@ -155,11 +155,17 @@ public final class CivilizationService {
 
     /** Moves a fully reserved project into the work phase. Repeating start is a read-only no-op. */
     public BuildingRecord startConstruction(final UUID buildingId) {
+        final BuildingRecord building = repository.findBuilding(buildingId)
+                .orElseThrow(() -> new IllegalArgumentException("Building does not exist: " + buildingId));
+        return startConstruction(buildingId, Math.max(worldData.simulationClock(), building.createdAtGameTime()));
+    }
+
+    public BuildingRecord startConstruction(final UUID buildingId, final long gameTime) {
         worldData.ensureWritable();
         final BuildingRecord building = repository.findBuilding(buildingId)
                 .orElseThrow(() -> new IllegalArgumentException("Building does not exist: " + buildingId));
         if (building.state() == BuildingState.UNDER_CONSTRUCTION) {
-            ensureBuilderJob(building, Math.max(worldData.simulationClock(), building.createdAtGameTime()));
+            ensureBuilderJob(building, gameTime);
             return building;
         }
         if (building.state() == BuildingState.ACTIVE) {
@@ -169,7 +175,9 @@ public final class CivilizationService {
                 .orElseThrow(() -> new IllegalStateException("Building references unknown blueprint: "
                         + building.blueprintId()));
         final BuildingRecord started = ConstructionProject.start(building, blueprint);
-        repository.saveConstructionUpdate(building, started);
+        final BuilderJobRecord newJob = BuilderJobRecord.forBuilding(
+                started, BuilderJobRecord.DEFAULT_PRIORITY, gameTime);
+        repository.saveConstructionStart(building, started, newJob);
         return started;
     }
 
