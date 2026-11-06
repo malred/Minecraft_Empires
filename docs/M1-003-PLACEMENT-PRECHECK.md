@@ -57,4 +57,4 @@
 
 ## 本地验收状态
 
-代码与 GameTests 已提交开发分支；等待本地 `build`、完整 GameTest suite 和原存档回归验收后再标记 PASS。
+代码与 GameTests 已提交 main；等待本地 `build`、完整 GameTest suite 和原存档回归验收后再标记 PASS。
