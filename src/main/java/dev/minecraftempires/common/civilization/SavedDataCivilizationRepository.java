@@ -47,4 +47,23 @@ public final class SavedDataCivilizationRepository implements CivilizationReposi
     ) {
         data.putConstructionUpdate(expectedCurrent, updatedBuilding);
     }
+
+    @Override public Optional<BuilderJobRecord> findBuilderJob(final UUID id) {
+        return data.findBuilderJob(id);
+    }
+
+    @Override public List<BuilderJobRecord> builderJobs() {
+        return data.builderJobs();
+    }
+
+    @Override public List<BuilderJobRecord> builderJobsForBuilding(final UUID buildingId) {
+        return data.builderJobsForBuilding(buildingId);
+    }
+
+    @Override public void saveBuilderJob(
+            final BuilderJobRecord expected,
+            final BuilderJobRecord updated
+    ) {
+        data.putBuilderJob(expected, updated);
+    }
 }
