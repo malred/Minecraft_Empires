@@ -31,8 +31,8 @@ Minecraft Java Edition 的文明经营、基地建设与即时战略模组。项
 
 ### M1 开发中
 
-- M1-001 已加入大本营核心方块、蓝图物品和 `empires:headquarters_hall` 官方蓝图（7×8×7、204 个方块），并新增注册/模板校验 GameTest；本次新增代码尚待用户本地 build/GameTest 验收。
-- 大本营核心是受管结构标记方块，不注册可直接放置的 BlockItem；蓝图物品已加入工具与实用物品栏。实际规划入口、唯一性服务、材料预留和施工仍按 M1-002 至 M1-008 实施。
+- M1-001 已加入大本营核心方块、蓝图物品和 `empires:headquarters_hall` 官方蓝图（7×8×7、204 个方块），并新增注册/模板校验 GameTest；用户于 2026-11-06 本地 build 成功，M0/M1 共 9/9 GameTests 通过。创造物品栏仍待人工确认。
+- 大本营核心是受管结构标记方块，不注册可直接放置的 BlockItem；蓝图物品已加入工具与实用物品栏。M1-002 已实现服务端势力唯一性约束（待本地验收）；材料预留和施工仍按 M1-004 至 M1-008 实施。
 
 ### 明确尚未完成
 
@@ -96,7 +96,7 @@ Gradle 8.8 目前会提示部分旧 API/插件功能已弃用；这类提示不�
 - [M0-010 方块放置适配器](docs/M0-010-BLOCK-PLACEMENT-ADAPTER.md)
 - [M0-011 世界数据校验](docs/M0-011-WORLD-DATA-VALIDATION.md)
 - [M0-012 集成测试](docs/M0-012-INTEGRATION-TESTS.md)
-- [M1-001 大本营内容注册](docs/M1-001-HEADQUARTERS-CONTENT.md)
+- [M1-001 大本营内容注册](docs/M1-001-HEADQUARTERS-CONTENT.md)\n- [M1-002 大本营唯一性服务](docs/M1-002-CAPITAL-UNIQUENESS.md)
 
 ## 存档与测试提醒
 
