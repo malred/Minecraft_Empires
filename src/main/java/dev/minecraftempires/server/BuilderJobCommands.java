@@ -1,6 +1,5 @@
 package dev.minecraftempires.server;
 
-import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import dev.minecraftempires.MinecraftEmpires;
 import dev.minecraftempires.common.civilization.BuilderJobRecord;
@@ -33,13 +32,7 @@ public final class BuilderJobCommands {
         debug.then(Commands.literal("create-builder-job")
                 .then(Commands.argument("building", StringArgumentType.word())
                         .executes(context -> createBuilderJob(
-                                context.getSource(), StringArgumentType.getString(context, "building"),
-                                BuilderJobRecord.DEFAULT_PRIORITY))
-                        .then(Commands.argument("priority", IntegerArgumentType.integer(
-                                BuilderJobRecord.MIN_PRIORITY, BuilderJobRecord.MAX_PRIORITY))
-                                .executes(context -> createBuilderJob(
-                                        context.getSource(), StringArgumentType.getString(context, "building"),
-                                        IntegerArgumentType.getInteger(context, "priority"))))));
+                                context.getSource(), StringArgumentType.getString(context, "building")))));
 
         debug.then(Commands.literal("list-builder-jobs")
                 .executes(context -> listBuilderJobs(context.getSource(), null))
@@ -105,13 +98,12 @@ public final class BuilderJobCommands {
 
     private static int createBuilderJob(
             final CommandSourceStack source,
-            final String buildingText,
-            final int priority
+            final String buildingText
     ) {
         try {
             final UUID buildingId = UUID.fromString(buildingText);
             final BuilderJobRecord job = CivilizationService.forLevel(source.getLevel())
-                    .createBuilderJob(buildingId, priority, source.getLevel().getGameTime());
+                    .createBuilderJob(buildingId, BuilderJobRecord.DEFAULT_PRIORITY, source.getLevel().getGameTime());
             source.sendSuccess(() -> Component.literal("Builder job ready | job=" + job.id()
                     + " | building=" + job.buildingId() + " | state=" + job.state()
                     + " | priority=" + job.priority()), true);
