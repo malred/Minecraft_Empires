@@ -161,6 +161,10 @@ public final class BuildingRecord {
         return copy(state, progress, newReservedMaterials, durability, worldSyncState);
     }
 
+    public BuildingRecord withReservedMaterials(final ResourceLedger newReservedMaterials) {
+        return copy(state, constructionProgress, newReservedMaterials, durability, worldSyncState);
+    }
+
     public BuildingRecord withState(final BuildingState newState, final WorldSyncState newWorldSyncState) {
         return copy(newState, constructionProgress, reservedMaterials, durability, newWorldSyncState);
     }
