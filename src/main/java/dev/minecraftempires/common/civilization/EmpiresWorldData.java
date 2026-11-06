@@ -176,7 +176,10 @@ public final class EmpiresWorldData extends SavedData {
         for (BuilderJobRecord job : builderJobs.values()) {
             if (job.isActive() && record.id().equals(job.assignedCitizenId())
                     && (record.status() != CitizenStatus.ACTIVE
-                    || !record.professionId().equals(BuilderJobRecord.BUILDER_PROFESSION_ID))) {
+                    || !record.ownerFactionId().equals(job.ownerFactionId())
+                    || !record.professionId().equals(BuilderJobRecord.BUILDER_PROFESSION_ID)
+                    || (record.homeSettlementId() != null
+                    && !record.homeSettlementId().equals(job.settlementId())))) {
                 throw new IllegalStateException("Citizen is assigned to active builder job " + job.id()
                         + "; release that job before changing status or profession");
             }
@@ -849,6 +852,7 @@ public final class EmpiresWorldData extends SavedData {
                     data.setDirty();
                 }
             }
+            data.validateBuilderJobStore();
 
             if (loadedSchema < CURRENT_SCHEMA_VERSION) {
                 data.setDirty();
