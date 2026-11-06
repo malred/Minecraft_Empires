@@ -89,15 +89,15 @@ M1-007 的测试现在覆盖两个层次：
 - `originChunk`：建筑原点所在区块坐标。
 - `originChunkLoaded`：通过 `ServerLevel.hasChunkAt(origin)` 只读查询原点区块是否已加载；该诊断不请求加载区块。
 
-手工验收建议在备份后的测试副本中，用一个全新且无重叠的仓库位置（不要改动已完成的旧仓库）：
-1. 选择远离玩家出生点/其他玩家/常驻区块加载器的空地，并尽量让 3×3 模板完整落在同一个 Chunk 内；确保地面稳固且无冲突。
-2. 创建并预留仓库材料，启动施工，提交 25/100 工作点。等待 `placementCursor` 大于 0 且小于 6（若预算为 8，通常会达到 6）；记录当前游标与建筑方块。
-3. 执行 `/empires debug building-placement <buildingUUID>`，确认 `originChunkLoaded=true`。离开该区域至少数百方块，确保没有其他玩家或强制加载器停留在该 Chunk 附近；等待服务器有机会卸载它。
-4. 在远离目标区块的位置再次执行同一诊断命令；只有看到 `originChunkLoaded=false`，才记作“确实卸载”，不要仅凭玩家离开或区块变暗判断。
-5. 回到建筑附近，等目标 Chunk 重新加载后再次执行诊断，确认 `originChunkLoaded=true`。检查原先已放置的方块仍在、`placementCursor` 没有回退或重复增长。
-6. 读取最新进度后提交后续施工工作点，确认剩余模板从既有游标继续放置，最终可以到达 `ACTIVE/SYNCED` 和完整模板。
+**用户真实客户端验收记录（2026-11-06，「新的世界2」，提交 `c51a3aa`）：**
+- 测试建筑：`9df20aae-8e99-4453-b728-ebbc83cbea46`，蓝图 `empires:warehouse_prototype@1`，原点 `(2111,63,1879)`，目标 Chunk `(131,117)`。
+- 卸载前：`UNDER_CONSTRUCTION`、进度 `25/100`、`worldSync=PENDING`、游标 `6/25`、`originChunkLoaded=true`。
+- 玩家传送到远处并等待后，诊断返回 `originChunkLoaded=false`；同时状态仍为 `UNDER_CONSTRUCTION/PENDING`，游标仍为 `6/25`。这确认目标 Chunk 真实卸载。
+- 玩家返回建筑位置后，诊断返回 `originChunkLoaded=true`；建筑仍为 `UNDER_CONSTRUCTION`、进度 `25/100`、游标 `6/25`。
+- 随后提交剩余 75 工作点，最终记录为 `ACTIVE`、`100/100`、escrow 为空、`worldSync=SYNCED`、游标 `25/25`。用户提供的日志未单独记录卸载返回后对原先 6 个方块的逐块目视检查，因此不额外声称完成了该项目视检查。
+- 同一轮用户提供 `runGameTestServer` 日志：**51/51 required GameTests passed**。该轮日志没有独立的 `gradlew.bat build` 最终摘要；此前 `e293d69` 的 build 成功记录保持单独标注，不外推到 `c51a3aa`。
 
-若区块一直保持 `true`，该次尝试只是没有触发卸载，不能判定功能失败或通过；应进一步远离、检查其他玩家/强制加载器，再重试。该手工场景尚未由助手或用户执行。
+该项真实 Chunk unload/load、游标保持和恢复后完成施工均为 **PASS**，无需再次执行本手工场景。Dedicated Server/真实多人仍未测试。
 
 ## 后续恢复验证边界
 
@@ -111,7 +111,7 @@ SavedData 序列化/反序列化测试验证逻辑施工进度、游标和 Build
 | 退出/重新进入后建筑逻辑记录与实际方块保留 | PASS（用户日志及目视确认） |
 | 原存档 Validator | PASS（0 errors、0 warnings） |
 | 51 项 Forge GameTests（含三项 M1-007 集成测试） | PASS（用户本地日志，提交 e293d69） |
-| 目标区块真实卸载后重新加载恢复 | NOT RUN（提供了 originChunkLoaded 诊断和手工步骤，仍需在客户端验收） |
+| 目标区块真实卸载后重新加载恢复 | PASS（用户真实客户端日志：true → false → true，游标 6/25 保持） |
 | Dedicated Server / 真实多人 | NOT RUN |
 
 运行新增代码前仍建议备份「新的世界2」及工程目录。测试所用的远端坐标仅存在于 GameTest 临时测试世界，不会写入玩家存档。
