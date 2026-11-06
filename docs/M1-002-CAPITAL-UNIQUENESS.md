@@ -29,6 +29,20 @@
 - 首都相同值重复绑定是幂等的，改绑到另一聚落被拒绝；已有大本营时不能把首都绑定到别的聚落。
 - validator 能检测同一势力多条未拆除大本营记录。
 
+## 本地验收记录（2026-11-06）
+
+<badge>PASS</badge> 用户本地实际执行结果：
+
+- `gradlew.bat build runGameTestServer --console=plain`：`BUILD SUCCESSFUL`。
+- Forge GameTests：M0-012 8 项 + M1-001 1 项 + M1-002 5 项，共 **14/14 required tests passed**。
+- `runClient` 成功进入既有世界「新的世界2」。
+- `/empires debug status`：`schema=3`、`readOnly=false`、`worldId=6ba6a5f4-e5f9-4e01-bfaa-f86a0aeac64c`、`factions=1`、`settlements=2`、`citizens=3`。
+- `/empires debug validate`：PASS，0 errors、0 warnings；记录数量为 factions=1、settlements=2、citizens=3、buildings=2。
+- 客户端正常退出；主世界、下界和末地均报告区块已保存。
+- 日志中的 schema 4 read-only 信息来自 `futureSchemaIsPreservedReadOnly` 自动化 fixture，不属于正式存档；正式存档仍为 schema 3 且可写。
+
+因此 M1-002 本地验收为 **PASS**。Dedicated Server 测试仍未执行。
+
 ## 当前限制
 
 本任务不提供拆除命令、毁灭/重建流程、首都迁移授权流程或大本营完成激活逻辑。这些需要在后续施工/重建任务中定义显式事务。
