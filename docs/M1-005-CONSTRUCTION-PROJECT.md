@@ -104,4 +104,23 @@ Faction 已在 M1-004 预留事务中扣除；施工工作不再触碰 Faction �
 
 ## 本地验收状态
 
-**待本地复验。** 用户首次执行 `gradlew.bat build runGameTestServer --console=plain` 时，`compileJava` 报告本测试文件存在两个错误：缺少 `ConstructionProject` import，以及一个 `createFixture` 调用缺少 `worldAlreadySynced` 参数。已在修复提交中补齐导入并传入 `false`；9 项 GameTests 尚未运行。请重新执行完整 build/GameTest 回归及既有存档 status/validate 检查后，再记录 PASS。当前日志中的 ResourceLocation 构造器输出为弃用警告，不是这次编译失败原因。助手环境未运行 Forge Gradle build、GameTestServer 或 Minecraft 客户端。
+**PASS — 2026-11-06**
+
+用户于 2026-11-06 在本地完成 M1-005 回归验收：
+
+- **Forge GameTests：38/38 required tests passed。** 9 项 M1-005 新增测试与此前 M0/M1 测试全部通过。GameTestServer 日志明确显示 All 38 required tests passed :)。
+- **旧存档加载：PASS。** 用户进入既有世界「新的世界2」，状态为 schema=3、worldId=6ba6a5f4-e5f9-4e01-bfaa-f86a0aeac64c、readOnly=false；factions=1、settlements=2、citizens=3，与此前记录一致。
+- **世界一致性验证：PASS。** Validator 报告 buildings=2、errors=0、warnings=0，并显示 No consistency issues found。
+- **Schema/迁移：无需变更。** 本任务不增加 SavedData 或 BuildingRecord schema 字段；旧存档仍为 schema 3，无需重建或迁移。
+- **Gradle 终态：未独立确认。** 提供的日志片段显示 38 项 GameTests 全部完成并且服务器正常关闭，但没有包含 Gradle 最终 BUILD SUCCESSFUL 摘要，因此此记录不把完整 Gradle task 终态另行标为 PASS。
+- **未覆盖：** Dedicated Server 独立启动、真实多人环境、Builder Job/工人寻路、分阶段方块施工、取消退款、修复/损坏生命周期仍不属于本任务验收范围，后续任务处理。
+
+### 本次验收证据
+
+用户提供的本地日志时间为 2026-11-06：
+- 09:49:53：38 GAME TESTS COMPLETE、All 38 required tests passed :)。
+- 10:07:49：玩家进入既有世界「新的世界2」。
+- 10:08:03：status 显示 schema=3、既有 worldId、factions=1、settlements=2、citizens=3、readOnly=false。
+- 10:08:06：validate 显示 PASS，buildings=2、errors=0、warnings=0。
+
+此前首次编译失败的测试代码修复已在 main 合并；ResourceLocation 构造器弃用警告不影响上述测试通过结论。助手环境未运行 Forge Gradle build、GameTestServer 或 Minecraft 客户端；本记录依据用户提供的 Windows 本地实测日志。
