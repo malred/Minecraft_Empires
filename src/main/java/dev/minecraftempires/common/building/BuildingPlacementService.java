@@ -152,7 +152,11 @@ public final class BuildingPlacementService {
             throw new IllegalArgumentException("Building belongs to dimension " + building.dimensionId()
                     + "; run this command in that dimension");
         }
-        if (building.state() != BuildingState.NEEDS_REPAIR || building.worldSyncState() != WorldSyncState.NEEDS_REPAIR) {
+        final boolean constructionRepair = building.state() == BuildingState.UNDER_CONSTRUCTION
+                && building.worldSyncState() == WorldSyncState.NEEDS_REPAIR;
+        final boolean initialRepair = building.state() == BuildingState.NEEDS_REPAIR
+                && building.worldSyncState() == WorldSyncState.NEEDS_REPAIR;
+        if (!constructionRepair && !initialRepair) {
             throw new IllegalStateException("Only a NEEDS_REPAIR placement can be resumed");
         }
 
@@ -161,8 +165,11 @@ public final class BuildingPlacementService {
         if (building.placementCursor() > template.blocks().size()) {
             throw new IllegalStateException("Saved placement cursor exceeds template block count; manual repair is required");
         }
+        final int resumeTarget = constructionRepair
+                ? targetBlockCount(building.constructionProgress(), building.workPointsRequired(), template.blocks().size())
+                : template.blocks().size();
         final Validation validation = validateRange(level, building, definition, template,
-                building.placementCursor(), template.blocks().size(), true);
+                building.placementCursor(), Math.max(building.placementCursor(), resumeTarget), true);
         if (validation.status() == ValidationStatus.WAITING_FOR_CHUNKS) {
             throw new IllegalArgumentException("All remaining template chunks must already be loaded before resuming");
         }
@@ -170,8 +177,10 @@ public final class BuildingPlacementService {
             throw new IllegalArgumentException("Placement cannot resume until this conflict is cleared: " + validation.reason());
         }
 
-        final BuildingRecord pending = building.withState(BuildingState.PLANNED, WorldSyncState.PENDING)
-                .withPlacementCursor(building.placementCursor(), WorldSyncState.PENDING);
+        final BuildingRecord pending = constructionRepair
+                ? building.withPlacementCursor(building.placementCursor(), WorldSyncState.PENDING)
+                : building.withState(BuildingState.PLANNED, WorldSyncState.PENDING)
+                        .withPlacementCursor(building.placementCursor(), WorldSyncState.PENDING);
         service.updateBuildingPlacement(pending);
         return new StartResult(pending, template.blocks().size());
     }
@@ -200,6 +209,13 @@ public final class BuildingPlacementService {
         for (BuildingRecord snapshot : data.buildings()) {
             if (remainingBudget <= 0) {
                 break;
+            }
+            if (snapshot.state() == BuildingState.UNDER_CONSTRUCTION
+                    && snapshot.constructionProgress() == snapshot.workPointsRequired()
+                    && snapshot.worldSyncState() == WorldSyncState.SYNCED) {
+                // Recovery for a crash after the final cursor save but before logical activation.
+                service.activateCompletedBuilding(snapshot.id());
+                continue;
             }
             if (snapshot.worldSyncState() != WorldSyncState.PENDING) {
                 continue;
