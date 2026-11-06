@@ -36,7 +36,7 @@ Minecraft Java Edition 的文明经营、基地建设与即时战略模组。项
 - M1-003 建筑放置预检已验收：用户本地 22/22 GameTests 通过；原存档 status 正常，validate PASS（0 errors/0 warnings）。该次日志片段未包含 Gradle 最终构建行。
 - M1-004 ResourceLedger 全额 escrow 原子预留已验收：用户本地 29/29 Forge GameTests 通过；「新的世界2」worldId/schema 不变，status 正常，validate PASS（0 errors/0 warnings）。该次日志未显示 Gradle 最终 BUILD SUCCESSFUL 行；Dedicated Server/真实多人测试仍待执行。详见 [M1-004 验收记录](docs/M1-004-RESOURCE-RESERVATION.md)。
 - M1-005 ConstructionProject 状态机已验收：用户本地 **38/38 required Forge GameTests PASS**；原存档「新的世界2」仍为 schema=3、readOnly=false，worldId 不变，factions=1、settlements=2、citizens=3、buildings=2，/empires debug validate 为 PASS（0 errors/0 warnings）。测试覆盖施工启动、累计进度扣减 escrow、stale expectedProgress 拒绝、完成/世界同步激活门槛和 SavedData 往返。用户提供的日志未包含 Gradle 最终 BUILD SUCCESSFUL 行；Dedicated Server/真实多人测试仍未执行。详见 [M1-005 专项说明](docs/M1-005-CONSTRUCTION-PROJECT.md)。
-- M1-006 Builder Job 已在开发分支实现：施工启动与唯一 AVAILABLE Builder Job 同一 SavedData mutation；新增居民 Builder 职业标记、任务领取/开工/释放/阻塞/重试/完成状态机、同一工人/建筑唯一活动任务约束，以及 schema 3 → 4 迁移（为已有 UNDER_CONSTRUCTION 项目补建任务）。新增 9 项 Forge GameTests，完整回归预计 **47 项**；等待用户本地 build/GameTest 与「新的世界2」schema 迁移回归验收。寻路、自动工人调度和分阶段方块呈现不在本任务范围。详见 [M1-006 专项说明](docs/M1-006-BUILDER-JOBS.md)。
+- M1-006 Builder Job **PASS**：用户本地 **47/47 required Forge GameTests 通过**；「新的世界2」由 schema 3 成功迁移到 schema 4，worldId `6ba6a5f4-e5f9-4e01-bfaa-f86a0aeac64c` 保持不变，readOnly=false，factions=1、settlements=2、citizens=3、buildings=2；Validator PASS（0 errors/0 warnings）。`/empires debug list-builder-jobs` 显示 No builder jobs found，与当前没有 UNDER_CONSTRUCTION 项目相符（迁移只为施工中的项目补任务）。日志片段未显示 Gradle 最终 BUILD SUCCESSFUL 摘要；Dedicated Server/真实多人测试仍未执行。寻路、自动工人调度和分阶段方块呈现不在本任务范围。详见 [M1-006 专项说明](docs/M1-006-BUILDER-JOBS.md)。
 
 ### 明确尚未完成
 
