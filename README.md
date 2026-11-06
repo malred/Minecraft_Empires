@@ -45,13 +45,14 @@ Minecraft Java Edition 的文明经营、基地建设与即时战略模组。项
 - 完工时完整模板 SYNCED 后激活建筑并完成 Builder Job；放置冲突进入 NEEDS_REPAIR，保留 UNDER_CONSTRUCTION 进度并允许恢复。
 - 用户于 2026-11-06 在「新的世界2」完成真实客户端端到端验收：50% 进度实际呈现 12/25 方块；冲突修复并恢复后完成 25/25，建筑 ACTIVE/SYNCED、cursor=25、escrow 为空、Builder Job COMPLETED。退出并重新进入后，用户确认仓库实际方块仍完整，Validator PASS（0 errors/0 warnings）。
 - 用户于 2026-11-06 在提交 `e293d69` 本地执行 `gradlew.bat build`（BUILD SUCCESSFUL in 19s）和 `gradlew.bat runGameTestServer --console=plain`（**51/51 required GameTests passed**，Gradle BUILD SUCCESSFUL in 29s）。随后在包含 Chunk 状态诊断的提交 `c51a3aa` 上再次提供 **51/51 GameTests 全部通过**的运行日志，并在「新的世界2」完成真实客户端 Chunk 卸载/重新加载验收：目标 Chunk 明确经历 `true → false → true`，施工进度和游标保持 `25/100、6/25`，继续施工后达到 `ACTIVE/SYNCED、100/100、25/25`。该轮日志未提供独立的 `gradlew.bat build` 最终摘要。M1-007 核心验收通过；Dedicated Server/多人仍未验收。详见 [M1-007 专项说明](docs/M1-007-STAGED-CONSTRUCTION.md)。
+- M1-008A 建筑取消与 escrow 退款。**代码已提交，待用户本地构建与 GameTests 验收**：仅允许取消 PLANNED/RESERVED/UNDER_CONSTRUCTION；退回全部剩余 escrow（施工中只退未消耗部分），Building 与 Builder Job、Faction inventory 在同一次 SavedData mutation 中提交；重复取消为只读幂等；取消不删除已放置方块，并阻止 PENDING 调度继续放置。新增 3 项 GameTests，详见 [M1-008A 专项说明](docs/M1-008A-BUILDING-CANCELLATION.md)。
 
 ### 明确尚未完成
 
 - M0-011 Dedicated Server 验收、损坏数据 fixture 自动化测试。
 - M0-012 集成验收进行中：新增 8 个 Forge GameTests，覆盖 SavedData 完成/中途游标往返、真实模板校验与方块放置、人口缓存、建筑重叠、重复实体 UUID、未来 schema 只读保护；用户于 2026-11-06 已在本地完成 `gradlew.bat build`（BUILD SUCCESSFUL in 38s）和 `gradlew.bat runGameTestServer --console=plain`（8/8 required tests passed，BUILD SUCCESSFUL in 1m 5s）。
 - 手工集成验收仍需覆盖中途强制停止恢复、目标区块卸载/重新加载、模板篡改和原存档回归。
-- M1：施工寻路/自动调度、取消退款、完整修复/损坏生命周期、基地管理 UI；M1-007 真实 Chunk 卸载/重新加载已由用户在客户端验收通过；Dedicated Server/多人回归仍待验收。
+- M1：施工寻路/自动调度、完整修复/损坏生命周期、基地管理 UI；M1-007 真实 Chunk 卸载/重新加载已由用户在客户端验收通过；M1-008A 取消退款代码已提交待验收；Dedicated Server/多人回归仍待验收。
 - M2 及以后：完整职业、资源点、生产仓储、种族、科技、军事 RTS、AI 文明、外交和多人等。
 
 ## 开发与运行
@@ -86,6 +87,7 @@ Gradle 8.8 目前会提示部分旧 API/插件功能已弃用；这类提示不�
 /empires debug resume-building-placement <buildingUUID>
 /empires debug reserve-building-materials <buildingUUID>
 /empires debug start-construction <buildingUUID>
+/empires debug cancel-building <buildingUUID>
 /empires debug apply-construction-work <buildingUUID> <expectedProgress> <workPoints>
 /empires debug activate-building <buildingUUID>
 /empires debug assign-builder <citizenUUID>
