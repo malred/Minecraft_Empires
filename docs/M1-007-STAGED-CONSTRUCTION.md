@@ -71,9 +71,11 @@ M1-007 的测试现在覆盖两个层次：
 3. 区块安全测试：施工目标位于未加载远端区块时保持 PENDING/cursor=0，不请求强制加载。
 4. SavedData 恢复测试：部分施工后序列化并重新加载权威数据，由新的 Repository/Service 从持久化游标继续放置，验证不会重头放置且最终可激活。
 
-**自动化执行记录（用户本地，2026-11-06）：** 用户在提交 `3b65896` 后执行 `gradlew.bat build`，结果 **BUILD SUCCESSFUL in 17s**；随后执行 `gradlew.bat runGameTestServer --console=plain`，日志显示 **50 GAME TESTS COMPLETE / All 50 required tests passed**。这 50 项包括原有 48 项及本专项新增的两项真实世界分批施工/冲突恢复和未加载区块安全测试。编译日志另有 3 条 `ResourceLocation(String, String)` deprecated-for-removal 警告；下一提交改为 Forge 47.4.x 已提供的 `ResourceLocation.fromNamespaceAndPath` 工厂方法。
+**自动化执行记录（用户本地，2026-11-06）：** 用户在提交 `e293d69` 后执行 `gradlew.bat build`，结果 **BUILD SUCCESSFUL in 19s**；随后执行 `gradlew.bat runGameTestServer --console=plain`，日志显示 **51 GAME TESTS COMPLETE / All 51 required tests passed**，Gradle 最终 **BUILD SUCCESSFUL in 29s**。51 项包含原有 48 项及本专项新增的三项测试：真实世界分批施工/冲突恢复、未加载区块不强制加载、SavedData 游标重载后继续施工并完成激活。
  
-本轮继续新增第 3 项 M1-007 GameTest：在部分放置后序列化并重新加载 `EmpiresWorldData`，由新 Repository/Service 从持久化游标继续实际放置，最终完成并激活。该新增测试尚未包含在用户提供的 50 项结果中，必须在下一次本地 build/GameTests 后才能标记 PASS。
+此前出现的 3 条 `ResourceLocation(String, String)` deprecated-for-removal 警告已消失，代码改为 `ResourceLocation.fromNamespaceAndPath`。编译器仍输出一条未定位到具体调用点的通用提示：`M1ConstructionGameTests.java 使用或覆盖了已过时的 API`；本轮没有使用 `-Xlint:deprecation` 追踪其余来源。Gradle 仍提示工程/插件使用了未来 Gradle 9 不兼容的 deprecated features，未使用 `--warning-mode all` 定位。
+ 
+51/51 是当前提交 `e293d69` 的用户本地真实执行结果；不得把它自动外推为后续提交的测试结果。
 
 ## 客户端验收记录（2026-11-06）
 
@@ -90,8 +92,7 @@ SavedData 序列化/反序列化测试验证逻辑施工进度、游标和 Build
 | 真实客户端分阶段方块施工、冲突恢复、完工激活 | PASS（用户日志及目视确认） |
 | 退出/重新进入后建筑逻辑记录与实际方块保留 | PASS（用户日志及目视确认） |
 | 原存档 Validator | PASS（0 errors、0 warnings） |
-| 50 项 Forge GameTests（含两项世界集成测试） | PASS（用户本地日志，提交 3b65896） |
-| 本次新增 SavedData 游标恢复 GameTest | NOT RUN（等待下一轮本地构建与测试） |
+| 51 项 Forge GameTests（含三项 M1-007 集成测试） | PASS（用户本地日志，提交 e293d69） |
 | 目标区块真实卸载后重新加载恢复 | NOT RUN（需独立验收，不能由远端未加载测试代替） |
 | Dedicated Server / 真实多人 | NOT RUN |
 

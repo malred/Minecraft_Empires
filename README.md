@@ -38,13 +38,13 @@ Minecraft Java Edition 的文明经营、基地建设与即时战略模组。项
 - M1-005 ConstructionProject 状态机已验收：用户本地 **38/38 required Forge GameTests PASS**；原存档「新的世界2」仍为 schema=3、readOnly=false，worldId 不变，factions=1、settlements=2、citizens=3、buildings=2，/empires debug validate 为 PASS（0 errors/0 warnings）。测试覆盖施工启动、累计进度扣减 escrow、stale expectedProgress 拒绝、完成/世界同步激活门槛和 SavedData 往返。用户提供的日志未包含 Gradle 最终 BUILD SUCCESSFUL 行；Dedicated Server/真实多人测试仍未执行。详见 [M1-005 专项说明](docs/M1-005-CONSTRUCTION-PROJECT.md)。
 - M1-006 Builder Job **PASS**：用户本地 **47/47 required Forge GameTests 通过**；「新的世界2」由 schema 3 成功迁移到 schema 4，worldId `6ba6a5f4-e5f9-4e01-bfaa-f86a0aeac64c` 保持不变，readOnly=false，factions=1、settlements=2、citizens=3、buildings=2；Validator PASS（0 errors/0 warnings）。`/empires debug list-builder-jobs` 显示 No builder jobs found，与当前没有 UNDER_CONSTRUCTION 项目相符（迁移只为施工中的项目补任务）。日志片段未显示 Gradle 最终 BUILD SUCCESSFUL 摘要；Dedicated Server/真实多人测试仍未执行。寻路、自动工人调度和分阶段方块呈现不在本任务范围。详见 [M1-006 专项说明](docs/M1-006-BUILDER-JOBS.md)。
 
-### M1-007 开发分支（客户端核心流程与 50 项 GameTests PASS）
+### M1-007 开发分支（客户端核心流程与 51 项 GameTests PASS）
 
 - 已实现施工工作点驱动的分阶段模板放置：`constructionProgress` 映射为模板前缀目标数，`placementCursor` 单独记录已确认放置数。
 - RESERVED 开工后排入 PENDING；每个服务器 END tick 沿用方块预算，仅在已加载区块中施工；目标区块未加载时暂停且不强制加载。
 - 完工时完整模板 SYNCED 后激活建筑并完成 Builder Job；放置冲突进入 NEEDS_REPAIR，保留 UNDER_CONSTRUCTION 进度并允许恢复。
 - 用户于 2026-11-06 在「新的世界2」完成真实客户端端到端验收：50% 进度实际呈现 12/25 方块；冲突修复并恢复后完成 25/25，建筑 ACTIVE/SYNCED、cursor=25、escrow 为空、Builder Job COMPLETED。退出并重新进入后，用户确认仓库实际方块仍完整，Validator PASS（0 errors/0 warnings）。
-- 用户于 2026-11-06 在提交 `3b65896` 本地执行 `gradlew.bat build`（BUILD SUCCESSFUL in 17s）和 `gradlew.bat runGameTestServer --console=plain`（**50/50 required GameTests passed**）。其中新增测试实际覆盖分批方块/冲突恢复/激活闭环，以及未加载远端区块不强制加载。随后新增 SavedData 游标恢复测试和 ResourceLocation deprecated API 清理，**该最新代码尚待下一轮本地 build/GameTests 验证**。真实 chunk 卸载后重新加载恢复、Dedicated Server/多人仍未验收。详见 [M1-007 专项说明](docs/M1-007-STAGED-CONSTRUCTION.md)。
+- 用户于 2026-11-06 在提交 `e293d69` 本地执行 `gradlew.bat build`（BUILD SUCCESSFUL in 19s）和 `gradlew.bat runGameTestServer --console=plain`（**51/51 required GameTests passed**，Gradle BUILD SUCCESSFUL in 29s）。新增测试覆盖真实分批方块/冲突恢复/激活闭环、未加载远端区块不强制加载，以及 SavedData 重载后从持久化游标继续施工。针对 `ResourceLocation(String, String)` 的 3 条 removal 警告已清理；仍有未定位的通用 deprecated API 提示和 Gradle 未来版本弃用提示。真实 chunk 卸载后重新加载恢复、Dedicated Server/多人仍未验收。详见 [M1-007 专项说明](docs/M1-007-STAGED-CONSTRUCTION.md)。
 
 ### 明确尚未完成
 
