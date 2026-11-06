@@ -73,6 +73,9 @@ Gradle 8.8 目前会提示部分旧 API/插件功能已弃用；这类提示不�
 /empires debug place-building <buildingUUID>
 /empires debug resume-building-placement <buildingUUID>
 /empires debug reserve-building-materials <buildingUUID>
+/empires debug start-construction <buildingUUID>
+/empires debug apply-construction-work <buildingUUID> <expectedProgress> <workPoints>
+/empires debug activate-building <buildingUUID>
 ```
 
 `validate` 只检查已加载的逻辑 SavedData，不读写真实区块或方块，不自动修复存档。详细范围和已知限制见 [M0-011 验收说明](docs/M0-011-WORLD-DATA-VALIDATION.md)。
