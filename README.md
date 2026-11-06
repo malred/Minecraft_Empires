@@ -45,7 +45,7 @@ Minecraft Java Edition 的文明经营、基地建设与即时战略模组。项
 - 完工时完整模板 SYNCED 后激活建筑并完成 Builder Job；放置冲突进入 NEEDS_REPAIR，保留 UNDER_CONSTRUCTION 进度并允许恢复。
 - 用户于 2026-11-06 在「新的世界2」完成真实客户端端到端验收：50% 进度实际呈现 12/25 方块；冲突修复并恢复后完成 25/25，建筑 ACTIVE/SYNCED、cursor=25、escrow 为空、Builder Job COMPLETED。退出并重新进入后，用户确认仓库实际方块仍完整，Validator PASS（0 errors/0 warnings）。
 - 用户于 2026-11-06 在提交 `e293d69` 本地执行 `gradlew.bat build`（BUILD SUCCESSFUL in 19s）和 `gradlew.bat runGameTestServer --console=plain`（**51/51 required GameTests passed**，Gradle BUILD SUCCESSFUL in 29s）。随后在包含 Chunk 状态诊断的提交 `c51a3aa` 上再次提供 **51/51 GameTests 全部通过**的运行日志，并在「新的世界2」完成真实客户端 Chunk 卸载/重新加载验收：目标 Chunk 明确经历 `true → false → true`，施工进度和游标保持 `25/100、6/25`，继续施工后达到 `ACTIVE/SYNCED、100/100、25/25`。该轮日志未提供独立的 `gradlew.bat build` 最终摘要。M1-007 核心验收通过；Dedicated Server/多人仍未验收。详见 [M1-007 专项说明](docs/M1-007-STAGED-CONSTRUCTION.md)。
-- M1-008A 建筑取消与 escrow 退款。****自动化 PASS（用户本地构建与 GameTests 验收，2026-11-06）****：55/55 required GameTests 通过，`BUILD SUCCESSFUL in 29s`。真实客户端 **RESERVED 全额退款/重复取消幂等 PASS**，且 **UNDER_CONSTRUCTION 50% 施工取消/剩余 escrow 部分退款/PENDING 游标停止 PASS（2026-11-06）**：施工后 escrow 每种材料剩 5、最终可用库存从 9 回到 14；取消后进度保留 50/100、cursor 保持 12/25、Builder Job 转 CANCELLED、Validator 0 errors/0 warnings。日志未单独证明逐块目视检查，且测试时 Job 原本无已分配工人；工人已领取时的释放仍需补测。Dedicated Server/多人未验收。详见 [M1-008A 专项说明](docs/M1-008A-BUILDING-CANCELLATION.md)。
+- M1-008A 建筑取消与 escrow 退款。****自动化 PASS（用户本地构建与 GameTests 验收，2026-11-06）****：55/55 required GameTests 通过，`BUILD SUCCESSFUL in 29s`。真实客户端 **RESERVED 全额退款/重复取消幂等 PASS**，且 **UNDER_CONSTRUCTION 50% 施工取消/剩余 escrow 部分退款/PENDING 游标停止 PASS（2026-11-06）**：施工后 escrow 每种材料剩 5、最终可用库存从 9 回到 14；取消后进度保留 50/100、cursor 保持 12/25、Builder Job 转 CANCELLED、Validator 0 errors/0 warnings。另有 GameTest `cancellingConstructionRefundsOnlyRemainingEscrowAndReleasesBuilder` 覆盖已领取/WORKING Builder Job 的工人释放；该边界无需额外人工重复测试。日志未单独证明真实客户端逐块目视检查。Dedicated Server/多人未验收。详见 [M1-008A 专项说明](docs/M1-008A-BUILDING-CANCELLATION.md)。
 
 ### 明确尚未完成
 
@@ -132,6 +132,7 @@ Gradle 8.8 目前会提示部分旧 API/插件功能已弃用；这类提示不�
 - [M1-006 Builder Job](docs/M1-006-BUILDER-JOBS.md)
 - [M1-007 分阶段方块施工](docs/M1-007-STAGED-CONSTRUCTION.md)
 - [M1-008A 建筑取消与材料退款](docs/M1-008A-BUILDING-CANCELLATION.md)
+- [自动化测试入口](docs/AUTOMATED-TESTING.md)
 
 ## 存档与测试提醒
 
