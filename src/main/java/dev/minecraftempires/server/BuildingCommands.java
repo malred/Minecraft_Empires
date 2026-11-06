@@ -1,6 +1,7 @@
 package dev.minecraftempires.server;
 
 import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.arguments.LongArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import dev.minecraftempires.MinecraftEmpires;
 import dev.minecraftempires.common.building.BlueprintCatalog;
@@ -72,6 +73,26 @@ public final class BuildingCommands {
                         .executes(context -> reserveBuildingMaterials(
                                 context.getSource(), StringArgumentType.getString(context, "building")))));
 
+        debug.then(Commands.literal("start-construction")
+                .then(Commands.argument("building", StringArgumentType.word())
+                        .executes(context -> startConstruction(
+                                context.getSource(), StringArgumentType.getString(context, "building")))));
+
+        debug.then(Commands.literal("apply-construction-work")
+                .then(Commands.argument("building", StringArgumentType.word())
+                        .then(Commands.argument("expectedProgress", LongArgumentType.longArg(0L))
+                                .then(Commands.argument("workPoints", LongArgumentType.longArg(1L))
+                                        .executes(context -> applyConstructionWork(
+                                                context.getSource(),
+                                                StringArgumentType.getString(context, "building"),
+                                                LongArgumentType.getLong(context, "expectedProgress"),
+                                                LongArgumentType.getLong(context, "workPoints")))))));
+
+        debug.then(Commands.literal("activate-building")
+                .then(Commands.argument("building", StringArgumentType.word())
+                        .executes(context -> activateBuilding(
+                                context.getSource(), StringArgumentType.getString(context, "building")))));
+
         debug.then(Commands.literal("list-buildings")
                 .then(Commands.argument("settlement", StringArgumentType.word())
                         .executes(context -> listBuildings(context.getSource(),
@@ -137,6 +158,69 @@ public final class BuildingCommands {
                             + " | available=" + faction.resources().asMap()
                             + " | escrow=" + building.reservedMaterials().asMap()
                             + " | Retry-safe by building UUID."), true);
+            return 1;
+        } catch (IllegalArgumentException | IllegalStateException exception) {
+            source.sendFailure(Component.literal(exception.getMessage()));
+            return 0;
+        }
+    }
+
+    private static int startConstruction(
+            final CommandSourceStack source,
+            final String buildingText
+    ) {
+        try {
+            final UUID buildingId = UUID.fromString(buildingText);
+            final BuildingRecord building = CivilizationService.forLevel(source.getLevel())
+                    .startConstruction(buildingId);
+            source.sendSuccess(() -> Component.literal(
+                    "Construction " + building.state()
+                            + " | building=" + building.id()
+                            + " | progress=" + building.constructionProgress() + "/" + building.workPointsRequired()
+                            + " | escrow=" + building.reservedMaterials().asMap()), true);
+            return 1;
+        } catch (IllegalArgumentException | IllegalStateException exception) {
+            source.sendFailure(Component.literal(exception.getMessage()));
+            return 0;
+        }
+    }
+
+    private static int applyConstructionWork(
+            final CommandSourceStack source,
+            final String buildingText,
+            final long expectedProgress,
+            final long workPoints
+    ) {
+        try {
+            final UUID buildingId = UUID.fromString(buildingText);
+            final BuildingRecord building = CivilizationService.forLevel(source.getLevel())
+                    .applyConstructionWork(buildingId, expectedProgress, workPoints);
+            source.sendSuccess(() -> Component.literal(
+                    "Construction work applied | building=" + building.id()
+                            + " | state=" + building.state()
+                            + " | progress=" + building.constructionProgress() + "/" + building.workPointsRequired()
+                            + " | escrow=" + building.reservedMaterials().asMap()
+                            + " | worldSync=" + building.worldSyncState()), true);
+            return 1;
+        } catch (IllegalArgumentException | IllegalStateException exception) {
+            source.sendFailure(Component.literal(exception.getMessage()));
+            return 0;
+        }
+    }
+
+    private static int activateBuilding(
+            final CommandSourceStack source,
+            final String buildingText
+    ) {
+        try {
+            final UUID buildingId = UUID.fromString(buildingText);
+            final BuildingRecord building = CivilizationService.forLevel(source.getLevel())
+                    .activateCompletedBuilding(buildingId);
+            source.sendSuccess(() -> Component.literal(
+                    "Building activation " + building.state()
+                            + " | building=" + building.id()
+                            + " | progress=" + building.constructionProgress() + "/" + building.workPointsRequired()
+                            + " | worldSync=" + building.worldSyncState()), true);
             return 1;
         } catch (IllegalArgumentException | IllegalStateException exception) {
             source.sendFailure(Component.literal(exception.getMessage()));
