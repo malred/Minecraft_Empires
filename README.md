@@ -43,7 +43,7 @@ Minecraft Java Edition 的文明经营、基地建设与即时战略模组。项
 - 已实现施工工作点驱动的分阶段模板放置：`constructionProgress` 映射为模板前缀目标数，`placementCursor` 单独记录已确认放置数。
 - RESERVED 开工后排入 PENDING；每 tick 沿用方块预算，仅在已加载区块中施工；区块未加载时暂停。
 - 完工时完整模板 SYNCED 后激活建筑并完成 Builder Job；放置冲突进入 NEEDS_REPAIR，保留 UNDER_CONSTRUCTION 进度并允许恢复。
-- 新增 1 项 M1-007 GameTest（确定性映射/单调性/零进度/满进度）；**尚未运行 build 或 GameTests**，不得将其标记为 PASS。详见 [M1-007 专项说明](docs/M1-007-STAGED-CONSTRUCTION.md)。
+- 新增 1 项 M1-007 GameTest（确定性映射/单调性/零进度/满进度）。用户于 2026-11-06 在分支提交 `632101a` 本地运行 `gradlew.bat build`（BUILD SUCCESSFUL）及 Forge GameTests（48/48 required tests passed）；随后启动客户端，旧存档 schema=4、worldId 不变、readOnly=false，`/empires debug validate` PASS（0 errors/0 warnings）。**真实新建筑的分阶段方块施工尚未完成客户端验收**。本分支随后增加了 OP 专用 `add-resource` 测试命令，该命令新增提交尚待用户重新 build/GameTests。详见 [M1-007 专项说明](docs/M1-007-STAGED-CONSTRUCTION.md)。
 
 ### 明确尚未完成
 
@@ -72,6 +72,7 @@ Gradle 8.8 目前会提示部分旧 API/插件功能已弃用；这类提示不�
 
 ```mcfunction
 /empires debug status
+/empires debug add-resource <factionUUID> <resourceId> <amount>
 /empires debug simulation
 /empires debug validate
 /empires debug validate 2
