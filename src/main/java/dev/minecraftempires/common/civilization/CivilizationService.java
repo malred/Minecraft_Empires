@@ -30,6 +30,7 @@ public final class CivilizationService {
     public EmpiresWorldData worldData() { return worldData; }
     public List<FactionRecord> factions() { return repository.factions(); }
     public Optional<FactionRecord> findFaction(final UUID id) { return repository.findFaction(id); }
+    public Optional<SettlementRecord> findSettlement(final UUID id) { return repository.findSettlement(id); }
     public List<CitizenRecord> citizens() { return repository.citizens(); }
     public List<CitizenRecord> citizensForFaction(final UUID factionId) {
         if (repository.findFaction(factionId).isEmpty()) {
