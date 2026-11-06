@@ -53,7 +53,7 @@ flowchart TD
 
 ## 4. M1 任务分解
 
-- M1-001 HQ 物品/方块/蓝图注册。
+- M1-001 HQ 物品/方块/蓝图注册。（代码已提交；本地 build/GameTest 待验收）
 - M1-002 Capital uniqueness service。
 - M1-003 放置预检查（地形、边界、重叠、势力权限）。
 - M1-004 ResourceLedger 与原子预留。

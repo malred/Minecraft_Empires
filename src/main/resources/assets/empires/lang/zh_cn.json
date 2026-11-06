@@ -1,4 +1,6 @@
 {
   "modmenu.nameTranslation.empires": "方块帝国",
-  "entity.empires.citizen": "居民"
+  "entity.empires.citizen": "居民",
+  "block.empires.headquarters_core": "大本营核心",
+  "item.empires.headquarters_blueprint": "大本营蓝图"
 }

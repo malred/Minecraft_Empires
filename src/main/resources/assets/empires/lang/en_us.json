@@ -1,4 +1,6 @@
 {
   "modmenu.nameTranslation.empires": "Minecraft Empires",
-  "entity.empires.citizen": "Citizen"
+  "entity.empires.citizen": "Citizen",
+  "block.empires.headquarters_core": "Headquarters Core",
+  "item.empires.headquarters_blueprint": "Headquarters Blueprint"
 }
