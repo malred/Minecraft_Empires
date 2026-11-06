@@ -598,10 +598,6 @@ public final class EmpiresWorldData extends SavedData {
                     throw new IllegalArgumentException("Building " + job.buildingId()
                             + " has multiple active builder jobs " + previous + " and " + job.id());
                 }
-            } else if (job.state() == BuilderJobState.COMPLETED
-                    && building.state() != dev.minecraftempires.common.building.BuildingState.ACTIVE) {
-                throw new IllegalArgumentException("Completed builder job " + job.id()
-                        + " targets a building that is not ACTIVE");
             }
 
             if (job.state().requiresAssignedCitizen()) {
