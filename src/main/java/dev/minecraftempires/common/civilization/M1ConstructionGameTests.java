@@ -38,7 +38,8 @@ public final class M1ConstructionGameTests {
                 .orElseThrow().resources();
 
         helper.assertTrue(started.state() == BuildingState.UNDER_CONSTRUCTION
-                        && started.constructionProgress() == 0L,
+                        && started.constructionProgress() == 0L
+                        && started.worldSyncState() == WorldSyncState.PENDING,
                 "A reserved project must start at zero progress in UNDER_CONSTRUCTION");
         helper.assertTrue(started.reservedMaterials().asMap().equals(fixture.blueprint().materials().asMap()),
                 "Starting work must retain the full initial escrow");
