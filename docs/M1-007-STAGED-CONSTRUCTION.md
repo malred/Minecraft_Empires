@@ -30,6 +30,8 @@ targetBlocks = floor(constructionProgress * templateBlockCount / workPointsRequi
 6. 完整模板落地：保存 SYNCED 游标；随后激活建筑并在同一 SavedData mutation 中完成 Builder Job。
 7. 发生冲突/异常：暂停在 NEEDS_REPAIR，保留 UNDER_CONSTRUCTION、工作点、escrow 和游标；修复冲突后可恢复放置。
 
+M1-006 尚未提供居民工作 tick/寻路，因此当前工作点仍由 OP 调试命令或后续服务调用提交；M1-007 负责将已提交工作点转为可见方块，不把自动寻路/自动工时伪装成已实现。
+
 ## 恢复与兼容
 
 - 施工工作点、材料 escrow、placement cursor、worldSyncState、Builder Job 均持久化。
@@ -37,6 +39,7 @@ targetBlocks = floor(constructionProgress * templateBlockCount / workPointsRequi
 - 若崩溃发生在最终 SYNCED 保存与 ACTIVE 转换之间，调度器在后续 tick 检测并补做激活。
 - 施工中的区块未加载时暂停；重新加载后从持久化游标继续。
 - 不新增 SavedData/BuildingRecord 字段，不改变 schema 4，不新增依赖。
+- 旧 schema 4 中已存在的 UNDER_CONSTRUCTION + NOT_PLACED 项目会由调度器安全加入 PENDING，不重置已有工作点、escrow 或游标。
 - 旧 schema 4 中已完成放置但尚未施工的 PLANNED 项目仍按既有放置路径处理；已有 placement cursor 不会被新算法回退。
 - 旧调试命令 `place-building` 仍保留给 PLANNED 项目的显式完整放置验收；正常施工流程不需要先执行它。
 
