@@ -55,6 +55,16 @@
 - Dedicated Server、真实客户端及多人权限测试待执行。
 - 本任务不更改 SavedData schema，不触碰用户旧存档，不新增依赖。
 
-## 本地验收状态
+## 本地验收记录（2026-11-06）
 
-代码与 GameTests 已提交 main；等待本地 `build`、完整 GameTest suite 和原存档回归验收后再标记 PASS。
+<badge>PASS</badge> 用户本地实际日志确认：
+
+- Forge GameTestServer：**22/22 required tests passed**，GameTestServer 正常保存三个维度并关闭。
+- 原存档「新的世界2」成功进入；status 显示 `schema=3`、`worldId=6ba6a5f4-e5f9-4e01-bfaa-f86a0aeac64c`、`factions=1`、`settlements=2`、`citizens=3`、`readOnly=false`。
+- `/empires debug validate` 最终返回 PASS：`factions=1, settlements=2, citizens=3, buildings=2, errors=0, warnings=0`，并显示无一致性问题。
+- 日志中第一次输入 validate 时出现一次“未知或不完整的命令”，随后命令重新执行成功；最终结果为 PASS。
+- 用户提供的日志片段未包含 Gradle 最终 `BUILD SUCCESSFUL` 行，因此本文只确认上述 GameTest 与原存档回归，不把未展示的构建状态单独记为 PASS。
+- Dedicated Server 与真实多人权限仍未执行。
+
+M1-003 的 GameTest 与原存档回归条件已通过；本任务可标记 PASS。构建结果以完整 Gradle 终端输出另行确认。
+
