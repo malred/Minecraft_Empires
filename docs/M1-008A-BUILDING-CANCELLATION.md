@@ -34,11 +34,12 @@
 
 ## GameTests
 
-新增 3 项 `empires.m1_008a` 测试：
+新增 4 项 `empires.m1_008a` 测试：
 1. 取消 PLANNED 不增加库存，重复取消不产生变化。
 2. 取消 RESERVED 全额退款，重复取消不重复退款。
 3. 取消 UNDER_CONSTRUCTION 只退剩余 escrow；施工进度、游标和 worldSync 保留；关联 Builder Job 变为 CANCELLED 并释放工人；Validator 无错误；重复取消不重复退款。
+4. 取消后即使 worldSync 仍为 PENDING，后续放置 tick 也不再写入方块。
 
 ## 验收状态
 
-代码已提交到 `codex/m1-007-staged-construction`，等待用户在 Windows/Forge 环境执行 `gradlew.bat build` 和 `gradlew.bat runGameTestServer --console=plain`。GameTests 预期总数为 54（原 51 + 新增 3），此数字是预期值，不是已执行结果。真实客户端命令、旧存档回归、Dedicated Server/多人尚未验收。
+代码已提交到 `codex/m1-007-staged-construction`，等待用户在 Windows/Forge 环境执行 `gradlew.bat build` 和 `gradlew.bat runGameTestServer --console=plain`。GameTests 预期总数为 55（原 51 + 新增 4），此数字是预期值，不是已执行结果。真实客户端命令、旧存档回归、Dedicated Server/多人尚未验收。
