@@ -38,6 +38,13 @@ Minecraft Java Edition 的文明经营、基地建设与即时战略模组。项
 - M1-005 ConstructionProject 状态机已验收：用户本地 **38/38 required Forge GameTests PASS**；原存档「新的世界2」仍为 schema=3、readOnly=false，worldId 不变，factions=1、settlements=2、citizens=3、buildings=2，/empires debug validate 为 PASS（0 errors/0 warnings）。测试覆盖施工启动、累计进度扣减 escrow、stale expectedProgress 拒绝、完成/世界同步激活门槛和 SavedData 往返。用户提供的日志未包含 Gradle 最终 BUILD SUCCESSFUL 行；Dedicated Server/真实多人测试仍未执行。详见 [M1-005 专项说明](docs/M1-005-CONSTRUCTION-PROJECT.md)。
 - M1-006 Builder Job **PASS**：用户本地 **47/47 required Forge GameTests 通过**；「新的世界2」由 schema 3 成功迁移到 schema 4，worldId `6ba6a5f4-e5f9-4e01-bfaa-f86a0aeac64c` 保持不变，readOnly=false，factions=1、settlements=2、citizens=3、buildings=2；Validator PASS（0 errors/0 warnings）。`/empires debug list-builder-jobs` 显示 No builder jobs found，与当前没有 UNDER_CONSTRUCTION 项目相符（迁移只为施工中的项目补任务）。日志片段未显示 Gradle 最终 BUILD SUCCESSFUL 摘要；Dedicated Server/真实多人测试仍未执行。寻路、自动工人调度和分阶段方块呈现不在本任务范围。详见 [M1-006 专项说明](docs/M1-006-BUILDER-JOBS.md)。
 
+### M1-007 开发分支（验收未完成）
+
+- 已实现施工工作点驱动的分阶段模板放置：`constructionProgress` 映射为模板前缀目标数，`placementCursor` 单独记录已确认放置数。
+- RESERVED 开工后排入 PENDING；每 tick 沿用方块预算，仅在已加载区块中施工；区块未加载时暂停。
+- 完工时完整模板 SYNCED 后激活建筑并完成 Builder Job；放置冲突进入 NEEDS_REPAIR，保留 UNDER_CONSTRUCTION 进度并允许恢复。
+- 新增 1 项 M1-007 GameTest（确定性映射/单调性/零进度/满进度）；**尚未运行 build 或 GameTests**，不得将其标记为 PASS。详见 [M1-007 专项说明](docs/M1-007-STAGED-CONSTRUCTION.md)。
+
 ### 明确尚未完成
 
 - M0-011 Dedicated Server 验收、损坏数据 fixture 自动化测试。
@@ -119,6 +126,7 @@ Gradle 8.8 目前会提示部分旧 API/插件功能已弃用；这类提示不�
 - [M1-004 材料原子预留](docs/M1-004-RESOURCE-RESERVATION.md)
 - [M1-005 施工项目状态机](docs/M1-005-CONSTRUCTION-PROJECT.md)
 - [M1-006 Builder Job](docs/M1-006-BUILDER-JOBS.md)
+- [M1-007 分阶段方块施工](docs/M1-007-STAGED-CONSTRUCTION.md)
 
 ## 存档与测试提醒
 
