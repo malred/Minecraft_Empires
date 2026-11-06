@@ -42,4 +42,36 @@
 
 ## 验收状态
 
-代码已提交到 `codex/m1-007-staged-construction`。**用户于 2026-11-06 在本地提供验收日志：`runGameTestServer --console=plain` 完成 55/55 required GameTests，Gradle `BUILD SUCCESSFUL in 29s`。** GameTests 自动化验收通过。真实客户端取消命令/退款、旧存档回归、Dedicated Server/多人仍未验收。用户日志仍有 Gradle 9.0 deprecation 提示，本轮不阻断构建。
+### 自动化验收
+
+**PASS — 用户本地验收，2026-11-06。** `runGameTestServer --console=plain` 完成 **55/55 required GameTests**，Gradle `BUILD SUCCESSFUL in 29s`。新增 4 项 M1-008A 测试均包含在回归中。用户日志有 Gradle 9.0 deprecation 提示，但本轮构建成功。
+
+### 真实客户端：RESERVED 取消与全额退款
+
+**PASS — 用户于 2026-11-06 在既有世界「新的世界2」完成 RESERVED 状态真实客户端验收。**
+
+存档与测试对象：
+- `schema=4`、`worldId=6ba6a5f4-e5f9-4e01-bfaa-f86a0ae64c64`、`readOnly=false`。
+- 进入测试前 `/empires debug validate`：PASS，0 errors、0 warnings。
+- 测试势力：`c2a593a0-ac36-4f90-8bbf-dd0cb5660a32`（Test Wolves）。
+- 测试聚落：`cca48d0a-89af-4b8c-b651-b612390baaf3`。
+- 本轮新建建筑：`3a8ebd16-33f5-4d3b-955f-6169f6817437`，蓝图 `empires:warehouse_prototype`，位置 `(2157,63,1843)`。
+
+实际命令与观察：
+1. `plan-building` 成功，产生 `PLANNED` 记录；命令明确报告未放置方块、未扣材料。
+2. `reserve-building-materials` 将建筑转为 `RESERVED`；escrow 为 `minecraft:cobblestone=9`、`minecraft:oak_planks=9`。
+3. `show-building` 确认 `RESERVED`、`progress=0/100`、escrow 为上述完整材料。
+4. 第一次 `cancel-building` 返回 `CANCELLED`、`escrowCleared=true`、`progress=0/100`、`placedBlocksPreserved=true`。
+5. 取消后 `show-building` 确认 `CANCELLED` 且 escrow 为空；`show-resources` 显示圆石与木板各恢复为 9。
+6. 对同一 UUID 再次执行取消；第二次取消后两种材料仍各为 9，证明没有重复退款。
+7. `list-buildings` 保留该 `CANCELLED` 历史记录；最终 `validate` 为 PASS，0 errors、0 warnings。原有 ACTIVE 建筑记录仍在列表中。
+
+本轮测试边界：
+- 该项目在取消时仍为 `progress=0/100`、`worldSync=NOT_PLACED`、`placementCursor=0`，因此**本轮没有实际已放置方块可供检查**。`placedBlocksPreserved=true` 是命令返回的保护标记，不应据此声称已完成施工中方块保留的视觉验收。
+- 本轮未测试 `UNDER_CONSTRUCTION` 取消、剩余 escrow 部分退款、已放置方块保留、Builder Job 工人释放或 PENDING 放置停止。
+- 本轮日志片段没有 Gradle 最终构建摘要；自动化构建与 55/55 GameTests 的 PASS 依据此前用户提供的独立日志。
+
+### 尚待验收
+
+- **UNDER_CONSTRUCTION 真实客户端取消：待完成。** 需验证按当前剩余 escrow 退款、已放置方块保留、施工进度/cursor/worldSync 保留、Builder Job 取消并释放工人、PENDING 调度不再写方块。
+- Dedicated Server、真实多人权限与并发场景：未验收。
