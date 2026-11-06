@@ -224,7 +224,7 @@ public final class BuildingCommands {
             source.sendSuccess(() -> Component.literal(
                     "Building cancellation " + building.state()
                             + " | building=" + building.id()
-                            + " | refunded=" + building.reservedMaterials().asMap()
+                            + " | escrowCleared=" + building.reservedMaterials().isEmpty()
                             + " | progress=" + building.constructionProgress() + "/" + building.workPointsRequired()
                             + " | placedBlocksPreserved=true"
             ), true);
