@@ -43,6 +43,7 @@ public final class WorldDataValidator {
         final Map<UUID, SettlementRecord> settlements = new LinkedHashMap<>();
         final Map<UUID, CitizenRecord> citizens = new LinkedHashMap<>();
         final Map<UUID, BuildingRecord> buildings = new LinkedHashMap<>();
+        final Map<UUID, BuilderJobRecord> builderJobs = new LinkedHashMap<>();
         for (FactionRecord faction : data.factions()) {
             factions.put(faction.id(), faction);
         }
@@ -55,12 +56,16 @@ public final class WorldDataValidator {
         for (BuildingRecord building : data.buildings()) {
             buildings.put(building.id(), building);
         }
+        for (BuilderJobRecord job : data.builderJobs()) {
+            builderJobs.put(job.id(), job);
+        }
 
         validateFactions(factions, settlements, issues);
         validateSettlements(factions, settlements, buildings, issues);
         validateCitizens(factions, settlements, citizens, issues);
         validateBuildings(factions, settlements, buildings, issues);
         validateBuildingOverlaps(buildings, issues);
+        validateBuilderJobs(builderJobs, buildings, citizens, issues);
 
         return new Report(factions.size(), settlements.size(), citizens.size(), buildings.size(), issues);
     }
@@ -292,6 +297,67 @@ public final class WorldDataValidator {
                     && building.worldSyncState() != WorldSyncState.NEEDS_REPAIR) {
                 issues.add(new Issue(Severity.WARNING, "Building " + building.id()
                         + " is NEEDS_REPAIR but worldSyncState is " + building.worldSyncState() + "."));
+            }
+        }
+    }
+
+    private static void validateBuilderJobs(
+            final Map<UUID, BuilderJobRecord> jobs,
+            final Map<UUID, BuildingRecord> buildings,
+            final Map<UUID, CitizenRecord> citizens,
+            final List<Issue> issues
+    ) {
+        final Map<UUID, UUID> activeJobByBuilding = new HashMap<>();
+        final Map<UUID, UUID> activeJobByCitizen = new HashMap<>();
+        for (BuilderJobRecord job : jobs.values()) {
+            final BuildingRecord building = buildings.get(job.buildingId());
+            if (building == null) {
+                issues.add(new Issue(Severity.ERROR, "Builder job " + job.id()
+                        + " references missing building " + job.buildingId() + "."));
+                continue;
+            }
+            if (!building.ownerFactionId().equals(job.ownerFactionId())
+                    || !building.settlementId().equals(job.settlementId())) {
+                issues.add(new Issue(Severity.ERROR, "Builder job " + job.id()
+                        + " owner/settlement does not match building " + building.id() + "."));
+            }
+            if (job.isActive()) {
+                if (building.state() != BuildingState.UNDER_CONSTRUCTION) {
+                    issues.add(new Issue(Severity.ERROR, "Active builder job " + job.id()
+                            + " targets building " + building.id() + " in state " + building.state() + "."));
+                }
+                final UUID previous = activeJobByBuilding.putIfAbsent(job.buildingId(), job.id());
+                if (previous != null) {
+                    issues.add(new Issue(Severity.ERROR, "Building " + job.buildingId()
+                            + " has multiple active builder jobs " + previous + " and " + job.id() + "."));
+                }
+            } else if (job.state() == BuilderJobState.COMPLETED
+                    && building.state() != BuildingState.ACTIVE) {
+                issues.add(new Issue(Severity.ERROR, "Completed builder job " + job.id()
+                        + " targets non-ACTIVE building " + building.id() + "."));
+            }
+            if (job.state().requiresAssignedCitizen()) {
+                final CitizenRecord citizen = citizens.get(job.assignedCitizenId());
+                if (citizen == null || citizen.status() != CitizenStatus.ACTIVE
+                        || !citizen.ownerFactionId().equals(job.ownerFactionId())
+                        || !citizen.professionId().equals(BuilderJobRecord.BUILDER_PROFESSION_ID)
+                        || (citizen.homeSettlementId() != null
+                        && !citizen.homeSettlementId().equals(job.settlementId()))) {
+                    issues.add(new Issue(Severity.ERROR, "Builder job " + job.id()
+                            + " has ineligible assigned citizen " + job.assignedCitizenId() + "."));
+                }
+                final UUID previous = activeJobByCitizen.putIfAbsent(job.assignedCitizenId(), job.id());
+                if (previous != null) {
+                    issues.add(new Issue(Severity.ERROR, "Citizen " + job.assignedCitizenId()
+                            + " is assigned to multiple active builder jobs " + previous + " and " + job.id() + "."));
+                }
+            }
+        }
+        for (BuildingRecord building : buildings.values()) {
+            if (building.state() == BuildingState.UNDER_CONSTRUCTION
+                    && !activeJobByBuilding.containsKey(building.id())) {
+                issues.add(new Issue(Severity.ERROR, "UNDER_CONSTRUCTION building " + building.id()
+                        + " has no active builder job."));
             }
         }
     }
