@@ -20,6 +20,8 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
 
+import java.util.Map;
+
 /**
  * M0-012 integration coverage for persistent civilization records and read-only validation.
  *
@@ -681,6 +683,226 @@ public final class M0IntegrationGameTests {
                 "Successful precheck should create exactly one building record");
         helper.assertTrue(fixture.level().getBlockState(fixture.origin()).isAir(),
                 "Planning/precheck must not place any world blocks");
+        helper.succeed();
+    }
+
+    @GameTest(
+            template = "gametest_empty_5x5x5",
+            templateNamespace = "empires",
+            batch = "empires.m1_004",
+            timeoutTicks = 20
+    )
+    public static void reservationDebitsAvailableResourcesAndPersistsFullEscrow(final GameTestHelper helper) {
+        final PlacementFixture fixture = createPlacementFixture(helper, "M1-004 Reserve Success");
+        final BlueprintDefinition blueprint = BlueprintCatalog.find(
+                BlueprintCatalog.WAREHOUSE_PROTOTYPE_ID).orElseThrow();
+        final ResourceLocation oakPlanks = new ResourceLocation("minecraft", "oak_planks");
+        final ResourceLocation cobblestone = new ResourceLocation("minecraft", "cobblestone");
+        fixture.service().setResources(fixture.faction().id(), ResourceLedger.of(Map.of(
+                oakPlanks, 14L, cobblestone, 11L, new ResourceLocation("minecraft", "iron_ingot"), 4L)));
+        final BuildingRecord planned = fixture.service().planBuilding(fixture.settlement().id(),
+                blueprint.id(), OVERWORLD, new BlockPos(10, 64, 10), 0, fixture.level().getGameTime());
+
+        final BuildingRecord reserved = fixture.service().reserveBuildingMaterials(planned.id());
+        final FactionRecord updatedFaction = fixture.service().findFaction(fixture.faction().id()).orElseThrow();
+
+        helper.assertTrue(reserved.state() == dev.minecraftempires.common.building.BuildingState.RESERVED,
+                "Successful reservation must transition PLANNED to RESERVED");
+        helper.assertTrue(reserved.reservedMaterials().asMap().equals(blueprint.materials().asMap()),
+                "Building escrow must contain the full blueprint material cost");
+        helper.assertTrue(updatedFaction.resources().get(oakPlanks) == 5L
+                        && updatedFaction.resources().get(cobblestone) == 2L
+                        && updatedFaction.resources().get(new ResourceLocation("minecraft", "iron_ingot")) == 4L,
+                "Reservation must debit exact required amounts while preserving unrelated inventory");
+        helper.assertTrue(fixture.service().findBuilding(planned.id()).orElseThrow().state()
+                        == dev.minecraftempires.common.building.BuildingState.RESERVED,
+                "Reserved state was not persisted");
+        helper.succeed();
+    }
+
+    @GameTest(
+            template = "gametest_empty_5x5x5",
+            templateNamespace = "empires",
+            batch = "empires.m1_004",
+            timeoutTicks = 20
+    )
+    public static void reservationRetryIsIdempotentByBuildingId(final GameTestHelper helper) {
+        final PlacementFixture fixture = createPlacementFixture(helper, "M1-004 Reserve Retry");
+        final BlueprintDefinition blueprint = BlueprintCatalog.find(
+                BlueprintCatalog.WAREHOUSE_PROTOTYPE_ID).orElseThrow();
+        fixture.service().setResources(fixture.faction().id(), blueprint.materials());
+        final BuildingRecord planned = fixture.service().planBuilding(fixture.settlement().id(),
+                blueprint.id(), OVERWORLD, new BlockPos(10, 64, 10), 0, fixture.level().getGameTime());
+
+        final BuildingRecord first = fixture.service().reserveBuildingMaterials(planned.id());
+        final ResourceLedger balanceAfterFirst = fixture.service().findFaction(fixture.faction().id())
+                .orElseThrow().resources();
+        final BuildingRecord retry = fixture.service().reserveBuildingMaterials(planned.id());
+        final ResourceLedger balanceAfterRetry = fixture.service().findFaction(fixture.faction().id())
+                .orElseThrow().resources();
+
+        helper.assertTrue(first.id().equals(retry.id())
+                        && retry.state() == dev.minecraftempires.common.building.BuildingState.RESERVED,
+                "Reservation retry must return the already-reserved building");
+        helper.assertTrue(balanceAfterFirst.asMap().equals(balanceAfterRetry.asMap())
+                        && balanceAfterRetry.isEmpty(),
+                "Retry must not debit faction resources a second time");
+        helper.assertTrue(retry.reservedMaterials().asMap().equals(blueprint.materials().asMap()),
+                "Retry must preserve the original escrow");
+        helper.succeed();
+    }
+
+    @GameTest(
+            template = "gametest_empty_5x5x5",
+            templateNamespace = "empires",
+            batch = "empires.m1_004",
+            timeoutTicks = 20
+    )
+    public static void insufficientMaterialsRejectWithoutPartialDebit(final GameTestHelper helper) {
+        final PlacementFixture fixture = createPlacementFixture(helper, "M1-004 Reserve Shortage");
+        final BlueprintDefinition blueprint = BlueprintCatalog.find(
+                BlueprintCatalog.WAREHOUSE_PROTOTYPE_ID).orElseThrow();
+        final ResourceLocation oakPlanks = new ResourceLocation("minecraft", "oak_planks");
+        final ResourceLocation cobblestone = new ResourceLocation("minecraft", "cobblestone");
+        final ResourceLedger before = ResourceLedger.of(Map.of(oakPlanks, 100L, cobblestone, 8L));
+        fixture.service().setResources(fixture.faction().id(), before);
+        final BuildingRecord planned = fixture.service().planBuilding(fixture.settlement().id(),
+                blueprint.id(), OVERWORLD, new BlockPos(10, 64, 10), 0, fixture.level().getGameTime());
+
+        boolean rejected = false;
+        try {
+            fixture.service().reserveBuildingMaterials(planned.id());
+        } catch (IllegalArgumentException expected) {
+            rejected = expected.getMessage().contains("Insufficient resource");
+        }
+        final FactionRecord afterFaction = fixture.service().findFaction(fixture.faction().id()).orElseThrow();
+        final BuildingRecord afterBuilding = fixture.service().findBuilding(planned.id()).orElseThrow();
+
+        helper.assertTrue(rejected, "Insufficient resources must reject the reservation");
+        helper.assertTrue(before.asMap().equals(afterFaction.resources().asMap()),
+                "Failed reservation must leave every faction resource unchanged");
+        helper.assertTrue(afterBuilding.state() == dev.minecraftempires.common.building.BuildingState.PLANNED
+                        && afterBuilding.reservedMaterials().isEmpty(),
+                "Failed reservation must leave building state and escrow unchanged");
+        helper.succeed();
+    }
+
+    @GameTest(
+            template = "gametest_empty_5x5x5",
+            templateNamespace = "empires",
+            batch = "empires.m1_004",
+            timeoutTicks = 20
+    )
+    public static void competingReservationsCannotOverspendFactionInventory(final GameTestHelper helper) {
+        final PlacementFixture fixture = createPlacementFixture(helper, "M1-004 Reserve Contention");
+        final BlueprintDefinition blueprint = BlueprintCatalog.find(
+                BlueprintCatalog.WAREHOUSE_PROTOTYPE_ID).orElseThrow();
+        fixture.service().setResources(fixture.faction().id(), blueprint.materials());
+        final BuildingRecord first = fixture.service().planBuilding(fixture.settlement().id(),
+                blueprint.id(), OVERWORLD, new BlockPos(10, 64, 10), 0, fixture.level().getGameTime());
+        final BuildingRecord second = fixture.service().planBuilding(fixture.settlement().id(),
+                blueprint.id(), OVERWORLD, new BlockPos(20, 64, 10), 0, fixture.level().getGameTime());
+
+        fixture.service().reserveBuildingMaterials(first.id());
+        boolean secondRejected = false;
+        try {
+            fixture.service().reserveBuildingMaterials(second.id());
+        } catch (IllegalArgumentException expected) {
+            secondRejected = expected.getMessage().contains("Insufficient resource");
+        }
+
+        helper.assertTrue(secondRejected,
+                "A second project must not reserve resources already escrowed by the first project");
+        helper.assertTrue(fixture.service().findFaction(fixture.faction().id()).orElseThrow()
+                        .resources().isEmpty(),
+                "Faction inventory should be fully debited only once");
+        helper.assertTrue(fixture.service().findBuilding(first.id()).orElseThrow().state()
+                        == dev.minecraftempires.common.building.BuildingState.RESERVED,
+                "First project should retain its reservation");
+        final BuildingRecord secondAfter = fixture.service().findBuilding(second.id()).orElseThrow();
+        helper.assertTrue(secondAfter.state() == dev.minecraftempires.common.building.BuildingState.PLANNED
+                        && secondAfter.reservedMaterials().isEmpty(),
+                "Rejected second project must remain unreserved");
+        helper.succeed();
+    }
+
+    @GameTest(
+            template = "gametest_empty_5x5x5",
+            templateNamespace = "empires",
+            batch = "empires.m1_004",
+            timeoutTicks = 20
+    )
+    public static void reservationEscrowAndFactionBalanceSurviveSavedDataRoundTrip(final GameTestHelper helper) {
+        final PlacementFixture fixture = createPlacementFixture(helper, "M1-004 Reserve Persistence");
+        final BlueprintDefinition blueprint = BlueprintCatalog.find(
+                BlueprintCatalog.WAREHOUSE_PROTOTYPE_ID).orElseThrow();
+        final ResourceLocation oakPlanks = new ResourceLocation("minecraft", "oak_planks");
+        final ResourceLocation cobblestone = new ResourceLocation("minecraft", "cobblestone");
+        fixture.service().setResources(fixture.faction().id(),
+                ResourceLedger.of(Map.of(oakPlanks, 15L, cobblestone, 9L)));
+        final BuildingRecord planned = fixture.service().planBuilding(fixture.settlement().id(),
+                blueprint.id(), OVERWORLD, new BlockPos(10, 64, 10), 0, fixture.level().getGameTime());
+        fixture.service().reserveBuildingMaterials(planned.id());
+
+        final EmpiresWorldData restored = EmpiresWorldData.load(fixture.data().save(new CompoundTag()));
+        final FactionRecord restoredFaction = restored.findFaction(fixture.faction().id()).orElseThrow();
+        final BuildingRecord restoredBuilding = restored.findBuilding(planned.id()).orElseThrow();
+        final WorldDataValidator.Report report = WorldDataValidator.validate(restored);
+
+        helper.assertTrue(restoredFaction.resources().get(oakPlanks) == 6L
+                        && restoredFaction.resources().get(cobblestone) == 0L,
+                "Faction's post-reservation available balance changed after SavedData round trip");
+        helper.assertTrue(restoredBuilding.state() == dev.minecraftempires.common.building.BuildingState.RESERVED
+                        && restoredBuilding.reservedMaterials().asMap().equals(blueprint.materials().asMap()),
+                "Building's escrow or RESERVED state did not survive SavedData round trip");
+        helper.assertTrue(report.passed() && report.warningCount() == 0,
+                "Reserved world data did not validate cleanly: errors=" + report.errorCount()
+                        + ", warnings=" + report.warningCount());
+        helper.succeed();
+    }
+
+    @GameTest(
+            template = "gametest_empty_5x5x5",
+            templateNamespace = "empires",
+            batch = "empires.m1_004",
+            timeoutTicks = 20
+    )
+    public static void validatorDetectsReservedEscrowMismatch(final GameTestHelper helper) {
+        final PlacementFixture fixture = createPlacementFixture(helper, "M1-004 Escrow Validator");
+        final BlueprintDefinition blueprint = BlueprintCatalog.find(
+                BlueprintCatalog.WAREHOUSE_PROTOTYPE_ID).orElseThrow();
+        final BuildingRecord planned = fixture.service().planBuilding(fixture.settlement().id(),
+                blueprint.id(), OVERWORLD, new BlockPos(10, 64, 10), 0, fixture.level().getGameTime());
+        final BuildingRecord corrupted = planned
+                .withReservedMaterials(ResourceLedger.of(Map.of(
+                        new ResourceLocation("minecraft", "oak_planks"), 1L)))
+                .withState(dev.minecraftempires.common.building.BuildingState.RESERVED, planned.worldSyncState());
+        fixture.data().putBuilding(corrupted);
+
+        final WorldDataValidator.Report report = WorldDataValidator.validate(fixture.data());
+        helper.assertTrue(!report.passed() && report.errorCount() == 1,
+                "Validator must reject a RESERVED building whose escrow differs from its blueprint cost");
+        helper.succeed();
+    }
+
+    @GameTest(
+            template = "gametest_empty_5x5x5",
+            templateNamespace = "empires",
+            batch = "empires.m1_004",
+            timeoutTicks = 20
+    )
+    public static void resourceLedgerRejectsOverflowWithoutChangingOriginal(final GameTestHelper helper) {
+        final ResourceLocation oakPlanks = new ResourceLocation("minecraft", "oak_planks");
+        final ResourceLedger original = ResourceLedger.of(Map.of(oakPlanks, Long.MAX_VALUE));
+        boolean overflowRejected = false;
+        try {
+            original.plus(ResourceLedger.of(Map.of(oakPlanks, 1L)));
+        } catch (IllegalArgumentException expected) {
+            overflowRejected = expected.getMessage().contains("overflow");
+        }
+        helper.assertTrue(overflowRejected, "Resource ledger addition must reject signed-long overflow");
+        helper.assertTrue(original.get(oakPlanks) == Long.MAX_VALUE,
+                "Overflow attempt must not mutate the original immutable ledger");
         helper.succeed();
     }
 
