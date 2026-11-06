@@ -81,16 +81,17 @@ Faction 已在 M1-004 预留事务中扣除；施工工作不再触碰 Faction �
 
 ## GameTests
 
-新增 8 项（完整回归预计 **37 项**：此前 M0/M1 已通过 29 项 + 本任务 8 项）：
+新增 9 项（完整回归预计 **38 项**：此前 M0/M1 已通过 29 项 + 本任务 9 项）：
 
-1. 开工只接受 RESERVED，转换重试不重复扣费。
-2. 工作按累计比例消耗 escrow；相同批次重试幂等。
-3. 旧进度令牌不能提交不同的新工作批次。
-4. 超大工作量封顶到总工作点，且不发生 long 溢出。
-5. 工作完成但方块未 SYNCED 时不能激活；同步后可激活。
-6. 方块已 SYNCED 的项目在最后一批工作完成时转为 ACTIVE。
-7. 部分进度和 escrow 经 SavedData round trip 保持一致且 Validator 通过。
-8. Validator 检测施工中 escrow 与累计进度不匹配。
+1. PLANNED 项目在材料预留前不能开工，拒绝时余额和记录不变。
+2. 开工只接受 RESERVED；重复开工不重复扣费。
+3. 工作按累计比例消耗 escrow；相同批次重试幂等。
+4. 旧进度令牌不能提交不同的新工作批次。
+5. 超大工作量封顶到总工作点，且不发生 long 溢出。
+6. 工作完成但方块未 SYNCED 时不能激活；同步后可激活。
+7. 方块已 SYNCED 的项目在最后一批工作完成时转为 ACTIVE。
+8. 部分进度和 escrow 经 SavedData round trip 保持一致且 Validator 通过。
+9. Validator 检测施工中 escrow 与累计进度不匹配。
 
 ## 持久化与未覆盖范围
 
@@ -102,4 +103,4 @@ Faction 已在 M1-004 预留事务中扣除；施工工作不再触碰 Faction �
 
 ## 本地验收状态
 
-**待本地验收。** 代码与 8 项 Forge GameTests 已提交开发分支。需用户执行完整 build/GameTest 回归及既有存档 status/validate 检查后，再记录 PASS。助手环境未运行 Forge Gradle build、GameTestServer 或 Minecraft 客户端。
+**待本地验收。** 代码与 9 项 Forge GameTests 已提交开发分支。需用户执行完整 build/GameTest 回归及既有存档 status/validate 检查后，再记录 PASS。助手环境未运行 Forge Gradle build、GameTestServer 或 Minecraft 客户端。
