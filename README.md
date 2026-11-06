@@ -33,7 +33,7 @@ Minecraft Java Edition 的文明经营、基地建设与即时战略模组。项
 
 - M1-001 已加入大本营核心方块、蓝图物品和 `empires:headquarters_hall` 官方蓝图（7×8×7、204 个方块），并新增注册/模板校验 GameTest；用户于 2026-11-06 本地 build 成功，M0/M1 共 9/9 GameTests 通过。创造物品栏仍待人工确认。
 - 大本营核心是受管结构标记方块，不注册可直接放置的 BlockItem；蓝图物品已加入工具与实用物品栏。M1-002 服务端势力唯一性约束已完成；用户于 2026-11-06 本地 build + 14/14 GameTests PASS，原存档 status/validate PASS（0 errors/0 warnings）。Dedicated Server 测试仍待执行。
-- M1-003 已加入世界感知放置预检：地形、完整 footprint 的边界/高度、区块加载、方块可替换性、势力归属和既有建筑重叠；新增 8 项 GameTests；用户于 2026-11-06 本地 22/22 GameTests 通过，原存档 status 正常且 validate PASS（0 errors/0 warnings）。本次日志片段未包含 Gradle 最终构建行。M1-004 ResourceLedger 全额 escrow 原子预留与 OP 调试命令已验收：用户本地 29/29 Forge GameTests 通过；「新的世界2」原存档 worldId/schema 不变，status 正常，validate PASS（0 errors/0 warnings）。本次提供的日志片段未显示 Gradle 最终 BUILD SUCCESSFUL 行；Dedicated Server/真实多人测试仍待执行。施工消耗、退款和完成结算留给 M1-005 至 M1-008。详见 [M1-004 验收记录](docs/M1-004-RESOURCE-RESERVATION.md)。
+- M1-003 已加入世界感知放置预检：地形、完整 footprint 的边界/高度、区块加载、方块可替换性、势力归属和既有建筑重叠；新增 8 项 GameTests；用户于 2026-11-06 本地 22/22 GameTests 通过，原存档 status 正常且 validate PASS（0 errors/0 warnings）。本次日志片段未包含 Gradle 最终构建行。M1-004 ResourceLedger 全额 escrow 原子预留与 OP 调试命令已验收：用户本地 29/29 Forge GameTests 通过；「新的世界2」原存档 worldId/schema 不变，status 正常，validate PASS（0 errors/0 warnings）。本次提供的日志片段未显示 Gradle 最终 BUILD SUCCESSFUL 行；Dedicated Server/真实多人测试仍待执行。详见 [M1-004 验收记录](docs/M1-004-RESOURCE-RESERVATION.md)。M1-005 ConstructionProject 状态机已实现 RESERVED→UNDER_CONSTRUCTION→ACTIVE、按累计进度消耗 escrow、expectedProgress 幂等工作批次和 worldSync 激活门槛；新增 8 项 GameTests，完整回归预计 37 项，待用户本地验收。施工工人和分阶段方块施工仍在 M1-006/M1-007。详见 [M1-005 专项说明](docs/M1-005-CONSTRUCTION-PROJECT.md)。
 
 ### 明确尚未完成
 
@@ -102,6 +102,7 @@ Gradle 8.8 目前会提示部分旧 API/插件功能已弃用；这类提示不�
 - [M1-002 大本营唯一性服务](docs/M1-002-CAPITAL-UNIQUENESS.md)
 - [M1-003 放置预检查](docs/M1-003-PLACEMENT-PRECHECK.md)
 - [M1-004 材料原子预留](docs/M1-004-RESOURCE-RESERVATION.md)
+- [M1-005 施工项目状态机](docs/M1-005-CONSTRUCTION-PROJECT.md)
 
 ## 存档与测试提醒
 
