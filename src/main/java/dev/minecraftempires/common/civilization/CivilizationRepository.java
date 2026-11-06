@@ -23,4 +23,5 @@ public interface CivilizationRepository {
     List<BuildingRecord> buildingsForSettlement(UUID settlementId);
     void saveBuilding(BuildingRecord record);
     void saveBuildingReservation(FactionRecord updatedFaction, BuildingRecord reservedBuilding);
+    void saveConstructionUpdate(BuildingRecord expectedCurrent, BuildingRecord updatedBuilding);
 }
