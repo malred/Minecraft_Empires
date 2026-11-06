@@ -149,6 +149,8 @@ jobId、jobType、ownerFactionId、targetId、assignedCitizenId、state、priori
 
 同一个 requestId 重复提交必须返回之前结果，不可再次扣费。资源扣除和项目创建应在服务层同一事务边界处理。MVP 不做跨世界数据库事务，但必须为存档中断设计恢复状态（如 RESERVED 项目可重建/释放）。
 
+M1-004 建筑材料预留采用全额 escrow：FactionRecord.resources 代表可用库存，BuildingRecord.reservedMaterials 代表项目锁定库存。单项目的 Building UUID 是稳定幂等键；PLANNED → RESERVED 事务必须在同一 SavedData mutation 中同步扣减 faction 可用库存并写入完整 building escrow。材料不足时拒绝整个事务，不允许部分扣费或负余额。当前不实现通用 requestId 回执表；网络命令网关上线时仍须对 requestId 做跨请求防重放处理。
+
 ## 7. 存档迁移
 
 - 根数据含 schemaVersion。
