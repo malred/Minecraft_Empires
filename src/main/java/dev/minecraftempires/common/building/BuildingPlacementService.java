@@ -217,7 +217,15 @@ public final class BuildingPlacementService {
                 service.activateCompletedBuilding(snapshot.id());
                 continue;
             }
-            if (snapshot.worldSyncState() != WorldSyncState.PENDING) {
+            if (snapshot.state() == BuildingState.UNDER_CONSTRUCTION
+                    && snapshot.worldSyncState() == WorldSyncState.NOT_PLACED) {
+                // Adopt pre-M1-007 schema-4 projects without resetting their saved work or cursor.
+                service.updateBuildingPlacement(snapshot.withPlacementCursor(
+                        snapshot.placementCursor(), WorldSyncState.PENDING));
+            }
+            if (snapshot.worldSyncState() != WorldSyncState.PENDING
+                    && !(snapshot.state() == BuildingState.UNDER_CONSTRUCTION
+                    && snapshot.worldSyncState() == WorldSyncState.NOT_PLACED)) {
                 continue;
             }
 
