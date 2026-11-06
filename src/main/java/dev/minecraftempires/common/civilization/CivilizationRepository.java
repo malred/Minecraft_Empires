@@ -25,6 +25,9 @@ public interface CivilizationRepository {
     void saveBuildingReservation(FactionRecord updatedFaction, BuildingRecord reservedBuilding);
     void saveConstructionUpdate(BuildingRecord expectedCurrent, BuildingRecord updatedBuilding);
     void saveConstructionStart(BuildingRecord expectedCurrent, BuildingRecord updatedBuilding, BuilderJobRecord newBuilderJob);
+    void saveBuildingCancellation(FactionRecord expectedFaction, FactionRecord updatedFaction,
+                                  BuildingRecord expectedBuilding, BuildingRecord cancelledBuilding,
+                                  BuilderJobRecord expectedJob, BuilderJobRecord cancelledJob);
     Optional<BuilderJobRecord> findBuilderJob(UUID id);
     List<BuilderJobRecord> builderJobs();
     List<BuilderJobRecord> builderJobsForBuilding(UUID buildingId);
