@@ -4,6 +4,7 @@ import dev.minecraftempires.common.building.BlueprintCatalog;
 import dev.minecraftempires.common.building.BlueprintDefinition;
 import dev.minecraftempires.common.building.BuildingRecord;
 import dev.minecraftempires.common.building.BuildingState;
+import dev.minecraftempires.common.building.ConstructionProject;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
@@ -138,8 +139,65 @@ public final class CivilizationService {
         final BuildingRecord reserved = building.withReservedMaterials(cost)
                 .withState(BuildingState.RESERVED, building.worldSyncState());
         // The repository publishes both immutable replacements through one SavedData mutation.
+
         repository.saveBuildingReservation(faction.withResources(remainingResources), reserved);
         return reserved;
+    }
+
+    /** Moves a fully reserved project into the work phase. Repeating start is a read-only no-op. */
+    public BuildingRecord startConstruction(final UUID buildingId) {
+        worldData.ensureWritable();
+        final BuildingRecord building = repository.findBuilding(buildingId)
+                .orElseThrow(() -> new IllegalArgumentException("Building does not exist: " + buildingId));
+        if (building.state() == BuildingState.UNDER_CONSTRUCTION || building.state() == BuildingState.ACTIVE) {
+            return building;
+        }
+        final BlueprintDefinition blueprint = BlueprintCatalog.find(building.blueprintId())
+                .orElseThrow(() -> new IllegalStateException("Building references unknown blueprint: "
+                        + building.blueprintId()));
+        final BuildingRecord started = ConstructionProject.start(building, blueprint);
+        repository.saveConstructionUpdate(building, started);
+        return started;
+    }
+
+    /**
+     * Applies an idempotent construction work batch. expectedProgress is a compare-and-set
+     * token: a replay of the same token and amount returns the committed result.
+     */
+    public BuildingRecord applyConstructionWork(
+            final UUID buildingId,
+            final long expectedProgress,
+            final long workPoints
+    ) {
+        worldData.ensureWritable();
+        final BuildingRecord building = repository.findBuilding(buildingId)
+                .orElseThrow(() -> new IllegalArgumentException("Building does not exist: " + buildingId));
+        final BlueprintDefinition blueprint = BlueprintCatalog.find(building.blueprintId())
+                .orElseThrow(() -> new IllegalStateException("Building references unknown blueprint: "
+                        + building.blueprintId()));
+        final BuildingRecord updated = ConstructionProject.applyWork(
+                building, blueprint, expectedProgress, workPoints);
+        if (updated == building) {
+            return building;
+        }
+        repository.saveConstructionUpdate(building, updated);
+        return updated;
+    }
+
+    /** Promotes a fully worked project after its world representation has become SYNCED. */
+    public BuildingRecord activateCompletedBuilding(final UUID buildingId) {
+        worldData.ensureWritable();
+        final BuildingRecord building = repository.findBuilding(buildingId)
+                .orElseThrow(() -> new IllegalArgumentException("Building does not exist: " + buildingId));
+        if (building.state() == BuildingState.ACTIVE) {
+            return building;
+        }
+        final BlueprintDefinition blueprint = BlueprintCatalog.find(building.blueprintId())
+                .orElseThrow(() -> new IllegalStateException("Building references unknown blueprint: "
+                        + building.blueprintId()));
+        final BuildingRecord activated = ConstructionProject.activate(building, blueprint);
+        repository.saveConstructionUpdate(building, activated);
+        return activated;
     }
 
     public FactionRecord createFaction(
