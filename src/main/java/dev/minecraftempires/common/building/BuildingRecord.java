@@ -161,6 +161,17 @@ public final class BuildingRecord {
         return copy(state, progress, newReservedMaterials, durability, worldSyncState);
     }
 
+    /** Updates cumulative construction progress and its matching remaining material escrow. */
+    public BuildingRecord withConstructionProgress(
+            final long progress,
+            final ResourceLedger newReservedMaterials
+    ) {
+        if (progress < constructionProgress) {
+            throw new IllegalArgumentException("Construction progress cannot move backwards for building " + id);
+        }
+        return copy(state, progress, newReservedMaterials, durability, worldSyncState);
+    }
+
     public BuildingRecord withReservedMaterials(final ResourceLedger newReservedMaterials) {
         return copy(state, constructionProgress, newReservedMaterials, durability, worldSyncState);
     }
