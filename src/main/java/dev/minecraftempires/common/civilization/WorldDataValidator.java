@@ -164,6 +164,7 @@ public final class WorldDataValidator {
             final Map<UUID, BuildingRecord> buildings,
             final List<Issue> issues
     ) {
+        final Map<UUID, UUID> headquartersByFaction = new HashMap<>();
         for (BuildingRecord building : buildings.values()) {
             if (!factions.containsKey(building.ownerFactionId())) {
                 issues.add(new Issue(Severity.ERROR, "Building " + building.id()
@@ -193,6 +194,16 @@ public final class WorldDataValidator {
                 issues.add(new Issue(Severity.ERROR, "Building " + building.id()
                         + " references unknown blueprint " + building.blueprintId() + "."));
                 continue;
+            }
+            if (blueprint.category() == dev.minecraftempires.common.building.BuildingCategory.HEADQUARTERS
+                    && building.state() != BuildingState.DEMOLISHED) {
+                final UUID previousHeadquarters = headquartersByFaction.putIfAbsent(
+                        building.ownerFactionId(), building.id());
+                if (previousHeadquarters != null && !previousHeadquarters.equals(building.id())) {
+                    issues.add(new Issue(Severity.ERROR, "Faction " + building.ownerFactionId()
+                            + " has multiple non-demolished headquarters buildings "
+                            + previousHeadquarters + " and " + building.id() + "."));
+                }
             }
             if (building.blueprintVersion() != blueprint.version()) {
                 issues.add(new Issue(Severity.ERROR, "Building " + building.id()
