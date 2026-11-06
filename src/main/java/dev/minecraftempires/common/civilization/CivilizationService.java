@@ -312,7 +312,8 @@ public final class CivilizationService {
         for (BuilderJobRecord existing : repository.builderJobsForBuilding(buildingId)) {
             if (existing.isActive()) {
                 if (existing.priority() != priority) {
-                    return existing;
+                    throw new IllegalStateException("Builder job already exists with priority "
+                            + existing.priority() + ": " + existing.id());
                 }
                 return existing;
             }
