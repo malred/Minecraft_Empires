@@ -172,7 +172,7 @@ public final class BuildingCommands {
         try {
             final UUID buildingId = UUID.fromString(buildingText);
             final BuildingRecord building = CivilizationService.forLevel(source.getLevel())
-                    .startConstruction(buildingId);
+                    .startConstruction(buildingId, source.getLevel().getGameTime());
             source.sendSuccess(() -> Component.literal(
                     "Construction " + building.state()
                             + " | building=" + building.id()
