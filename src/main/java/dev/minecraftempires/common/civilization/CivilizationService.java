@@ -110,7 +110,7 @@ public final class CivilizationService {
             case PLANNED -> {
                 // Continue below and perform the one permitted reservation transition.
             }
-            case NEEDS_REPAIR, DEMOLISHED -> throw new IllegalStateException(
+            case NEEDS_REPAIR, DEMOLISHED, CANCELLED -> throw new IllegalStateException(
                     "Cannot reserve materials for a building in state " + building.state() + ": " + buildingId);
         }
 
@@ -151,6 +151,57 @@ public final class CivilizationService {
 
         repository.saveBuildingReservation(faction.withResources(remainingResources), reserved);
         return reserved;
+    }
+
+    /**
+     * Cancels a planned or in-progress project. Only the remaining escrow is refunded;
+     * already-consumed materials and world blocks are deliberately left untouched.
+     */
+    public BuildingRecord cancelBuilding(final UUID buildingId, final long gameTime) {
+        worldData.ensureWritable();
+        final BuildingRecord building = repository.findBuilding(buildingId)
+                .orElseThrow(() -> new IllegalArgumentException("Building does not exist: " + buildingId));
+        if (building.state() == BuildingState.CANCELLED) {
+            if (!building.reservedMaterials().isEmpty()
+                    || repository.builderJobsForBuilding(buildingId).stream().anyMatch(BuilderJobRecord::isActive)) {
+                throw new IllegalStateException("Cancelled building has unsettled escrow or an active builder job: "
+                        + buildingId);
+            }
+            return building;
+        }
+        if (building.state() != BuildingState.PLANNED
+                && building.state() != BuildingState.RESERVED
+                && building.state() != BuildingState.UNDER_CONSTRUCTION) {
+            throw new IllegalStateException("Only PLANNED, RESERVED or UNDER_CONSTRUCTION buildings can be cancelled: "
+                    + buildingId + " is " + building.state());
+        }
+        final FactionRecord faction = repository.findFaction(building.ownerFactionId())
+                .orElseThrow(() -> new IllegalStateException("Building owner faction is missing: "
+                        + building.ownerFactionId()));
+        final ResourceLedger refund = building.reservedMaterials();
+        final FactionRecord refundedFaction = faction.withResources(faction.resources().plus(refund));
+
+        BuilderJobRecord expectedJob = null;
+        BuilderJobRecord cancelledJob = null;
+        final List<BuilderJobRecord> jobs = repository.builderJobsForBuilding(buildingId);
+        final List<BuilderJobRecord> activeJobs = jobs.stream().filter(BuilderJobRecord::isActive).toList();
+        if (building.state() == BuildingState.UNDER_CONSTRUCTION) {
+            if (activeJobs.size() != 1) {
+                throw new IllegalStateException("UNDER_CONSTRUCTION building must have exactly one active builder job: "
+                        + buildingId);
+            }
+            expectedJob = activeJobs.get(0);
+            cancelledJob = expectedJob.cancel(Math.max(gameTime, expectedJob.updatedAtGameTime()));
+        } else if (!activeJobs.isEmpty()) {
+            throw new IllegalStateException("A building before construction cannot have an active builder job: "
+                    + buildingId);
+        }
+
+        final BuildingRecord cancelled = building.withReservedMaterials(ResourceLedger.empty())
+                .withState(BuildingState.CANCELLED, building.worldSyncState());
+        repository.saveBuildingCancellation(faction, refundedFaction, building, cancelled,
+                expectedJob, cancelledJob);
+        return cancelled;
     }
 
     /** Moves a fully reserved project into the work phase. Repeating start is a read-only no-op. */
