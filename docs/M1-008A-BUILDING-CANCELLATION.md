@@ -42,4 +42,4 @@
 
 ## 验收状态
 
-代码已提交到 `codex/m1-007-staged-construction`，等待用户在 Windows/Forge 环境执行 `gradlew.bat build` 和 `gradlew.bat runGameTestServer --console=plain`。GameTests 预期总数为 55（原 51 + 新增 4），此数字是预期值，不是已执行结果。真实客户端命令、旧存档回归、Dedicated Server/多人尚未验收。
+代码已提交到 `codex/m1-007-staged-construction`。**用户于 2026-11-06 在本地提供验收日志：`runGameTestServer --console=plain` 完成 55/55 required GameTests，Gradle `BUILD SUCCESSFUL in 29s`。** GameTests 自动化验收通过。真实客户端取消命令/退款、旧存档回归、Dedicated Server/多人仍未验收。用户日志仍有 Gradle 9.0 deprecation 提示，本轮不阻断构建。
