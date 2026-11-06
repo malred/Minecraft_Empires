@@ -82,6 +82,66 @@ public final class CivilizationService {
         repository.saveBuilding(updated);
     }
 
+    /**
+     * Atomically moves a blueprint's full material cost from faction availability into
+     * the building's persisted escrow. The stable building UUID is the idempotency key:
+     * repeating this operation never debits the faction twice.
+     */
+    public BuildingRecord reserveBuildingMaterials(final UUID buildingId) {
+        worldData.ensureWritable();
+        final BuildingRecord building = repository.findBuilding(buildingId)
+                .orElseThrow(() -> new IllegalArgumentException("Building does not exist: " + buildingId));
+
+        switch (building.state()) {
+            case RESERVED, UNDER_CONSTRUCTION, ACTIVE, DAMAGED, REPAIRING, RUINED -> {
+                // A retry after the reservation transaction has committed is a read-only no-op.
+                return building;
+            }
+            case PLANNED -> {
+                // Continue below and perform the one permitted reservation transition.
+            }
+            case NEEDS_REPAIR, DEMOLISHED -> throw new IllegalStateException(
+                    "Cannot reserve materials for a building in state " + building.state() + ": " + buildingId);
+        }
+
+        if (!building.reservedMaterials().isEmpty()) {
+            throw new IllegalStateException("PLANNED building already contains reserved materials: " + buildingId);
+        }
+        final FactionRecord faction = repository.findFaction(building.ownerFactionId())
+                .orElseThrow(() -> new IllegalStateException("Building owner faction is missing: "
+                        + building.ownerFactionId()));
+        if (faction.status() != FactionStatus.ACTIVE) {
+            throw new IllegalStateException("Cannot reserve materials for an inactive faction: " + faction.id());
+        }
+
+        final BlueprintDefinition blueprint = BlueprintCatalog.find(building.blueprintId())
+                .orElseThrow(() -> new IllegalStateException("Building references unknown blueprint: "
+                        + building.blueprintId()));
+        if (blueprint.version() != building.blueprintVersion()) {
+            throw new IllegalStateException("Cannot reserve materials for outdated blueprint " + building.blueprintId()
+                    + ": savedVersion=" + building.blueprintVersion() + ", catalogVersion=" + blueprint.version());
+        }
+        if (!blueprint.templateChecksum().equals(building.templateChecksum())) {
+            throw new IllegalStateException("Cannot reserve materials because blueprint manifest checksum changed: "
+                    + building.blueprintId());
+        }
+
+        final ResourceLedger cost = blueprint.materials();
+        final ResourceLedger remainingResources;
+        try {
+            remainingResources = faction.resources().minus(cost);
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalArgumentException("Cannot reserve materials for building " + buildingId
+                    + ": " + exception.getMessage(), exception);
+        }
+
+        final BuildingRecord reserved = building.withReservedMaterials(cost)
+                .withState(BuildingState.RESERVED, building.worldSyncState());
+        // The repository publishes both immutable replacements through one SavedData mutation.
+        repository.saveBuildingReservation(faction.withResources(remainingResources), reserved);
+        return reserved;
+    }
+
     public FactionRecord createFaction(
             final String displayName,
             final ResourceLocation speciesId,
