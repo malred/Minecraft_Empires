@@ -568,7 +568,9 @@ public final class EmpiresWorldData extends SavedData {
                     || !newBuilderJob.ownerFactionId().equals(updatedBuilding.ownerFactionId())
                     || !newBuilderJob.settlementId().equals(updatedBuilding.settlementId())
                     || newBuilderJob.state() != BuilderJobState.AVAILABLE
-                    || newBuilderJob.assignedCitizenId() != null) {
+                    || newBuilderJob.assignedCitizenId() != null
+                    || newBuilderJob.retryCount() != 0
+                    || newBuilderJob.createdAtGameTime() != newBuilderJob.updatedAtGameTime()) {
                 throw new IllegalArgumentException("Construction start must atomically create its matching AVAILABLE builder job");
             }
             createdJob = newBuilderJob;
