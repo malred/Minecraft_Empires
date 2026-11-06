@@ -50,7 +50,7 @@ Minecraft Java Edition 的文明经营、基地建设与即时战略模组。项
 - M0-011 Dedicated Server 验收、损坏数据 fixture 自动化测试。
 - M0-012 集成验收进行中：新增 8 个 Forge GameTests，覆盖 SavedData 完成/中途游标往返、真实模板校验与方块放置、人口缓存、建筑重叠、重复实体 UUID、未来 schema 只读保护；用户于 2026-11-06 已在本地完成 `gradlew.bat build`（BUILD SUCCESSFUL in 38s）和 `gradlew.bat runGameTestServer --console=plain`（8/8 required tests passed，BUILD SUCCESSFUL in 1m 5s）。
 - 手工集成验收仍需覆盖中途强制停止恢复、目标区块卸载/重新加载、模板篡改和原存档回归。
-- M1：施工寻路/自动调度、分阶段方块施工、取消退款、修复/损坏生命周期、基地管理 UI 与 M1 集成测试。
+- M1：施工寻路/自动调度、取消退款、完整修复/损坏生命周期、基地管理 UI 与 M1 集成测试；M1-007 初版分阶段放置仍待本地回归验收。
 - M2 及以后：完整职业、资源点、生产仓储、种族、科技、军事 RTS、AI 文明、外交和多人等。
 
 ## 开发与运行
