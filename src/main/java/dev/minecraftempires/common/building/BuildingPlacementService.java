@@ -243,7 +243,31 @@ public final class BuildingPlacementService {
             markNeedsRepair(service, building, building.placementCursor(), "Saved placement cursor exceeds template block count");
             return;
         }
-        final int endExclusive = Math.min(template.blocks().size(), building.placementCursor() + availableBudget);
+        final int progressTarget = building.state() == BuildingState.PLANNED
+                ? template.blocks().size()
+                : building.state() == BuildingState.UNDER_CONSTRUCTION
+                ? targetBlockCount(building.constructionProgress(), building.workPointsRequired(), template.blocks().size())
+                : building.placementCursor();
+        // Schema-4 saves may contain an older full-template placement cursor. Never move it
+        // backwards when resuming those saves under staged construction.
+        final int targetCursor = Math.max(building.placementCursor(), progressTarget);
+        if (targetCursor > template.blocks().size()) {
+            markNeedsRepair(service, building, building.placementCursor(),
+                    "Saved placement cursor exceeds template block count");
+            return;
+        }
+        if (targetCursor == building.placementCursor()) {
+            if (targetCursor == template.blocks().size()
+                    && building.worldSyncState() != WorldSyncState.SYNCED) {
+                service.updateBuildingPlacement(building.withPlacementCursor(targetCursor, WorldSyncState.SYNCED));
+                if (building.state() == BuildingState.UNDER_CONSTRUCTION
+                        && building.constructionProgress() == building.workPointsRequired()) {
+                    service.activateCompletedBuilding(building.id());
+                }
+            }
+            return;
+        }
+        final int endExclusive = Math.min(targetCursor, building.placementCursor() + availableBudget);
         final Validation validation = validateRange(level, building, definition, template,
                 building.placementCursor(), endExclusive, true);
         if (validation.status() == ValidationStatus.WAITING_FOR_CHUNKS) {
@@ -280,10 +304,29 @@ public final class BuildingPlacementService {
         final WorldSyncState nextSync = cursor >= template.blocks().size()
                 ? WorldSyncState.SYNCED : WorldSyncState.PENDING;
         service.updateBuildingPlacement(building.withPlacementCursor(cursor, nextSync));
+        if (nextSync == WorldSyncState.SYNCED
+                && building.state() == BuildingState.UNDER_CONSTRUCTION
+                && building.constructionProgress() == building.workPointsRequired()) {
+            service.activateCompletedBuilding(building.id());
+        }
         if (nextSync == WorldSyncState.SYNCED && dev.minecraftempires.common.EmpiresConfig.DEBUG_LOGGING.get()) {
             MinecraftEmpires.LOGGER.info("Blueprint placement completed: building={}, blocks={}, templateChecksum={}",
                     building.id(), cursor, template.checksum());
         }
+    }
+
+    /** Deterministically maps cumulative work to a bottom-up prefix of the sorted template. */
+    public static int targetBlockCount(final long progress, final long totalWork, final int totalBlocks) {
+        if (totalWork < 1L || progress < 0L || progress > totalWork || totalBlocks < 0) {
+            throw new IllegalArgumentException("Invalid staged placement fraction or block count");
+        }
+        if (progress == totalWork) {
+            return totalBlocks;
+        }
+        return java.math.BigInteger.valueOf(progress)
+                .multiply(java.math.BigInteger.valueOf(totalBlocks))
+                .divide(java.math.BigInteger.valueOf(totalWork))
+                .intValueExact();
     }
 
     private static Validation validateRange(
@@ -416,8 +459,10 @@ public final class BuildingPlacementService {
             final int cursor,
             final String reason
     ) {
-        final BuildingRecord repair = building.withState(BuildingState.NEEDS_REPAIR, WorldSyncState.NEEDS_REPAIR)
-                .withPlacementCursor(cursor, WorldSyncState.NEEDS_REPAIR);
+        final BuildingRecord repair = building.state() == BuildingState.UNDER_CONSTRUCTION
+                ? building.withPlacementCursor(cursor, WorldSyncState.NEEDS_REPAIR)
+                : building.withState(BuildingState.NEEDS_REPAIR, WorldSyncState.NEEDS_REPAIR)
+                        .withPlacementCursor(cursor, WorldSyncState.NEEDS_REPAIR);
         service.updateBuildingPlacement(repair);
         MinecraftEmpires.LOGGER.warn("Building placement paused for repair: building={}, cursor={}, reason={}",
                 building.id(), cursor, reason);
