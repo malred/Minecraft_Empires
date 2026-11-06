@@ -66,13 +66,15 @@ GameTest 不替代下列真实运行场景：
 
 ## 当前验收状态（2026-11-06）
 
+自动化 GameTest 已通过；M0-012 整体仍处于部分验收状态，因为部分区块生命周期/中断恢复用例需要真实进程和世界运行。
+
 - [x] 八个 GameTest 方法已加入源码。
 - [x] GameTestServer 采用独立 `run-gametest` 工作目录。
 - [x] 不增加第三方依赖。
 - [x] 用户本地 `gradlew.bat build`：BUILD SUCCESSFUL（2026-11-06，38s；7 actionable tasks）。
-- [ ] 用户本地 `gradlew.bat runGameTestServer`：等待运行。
+- [x] 用户本地 `gradlew.bat runGameTestServer`：PASS（2026-11-06，8/8 required tests passed，BUILD SUCCESSFUL in 1m 5s）。
 - [ ] 原存档完整回归：部分项目已通过，仍需本轮回归确认。
-- [ ] 中途强制中断/区块卸载/模板损坏：NOT RUN。
+- [ ] 中途强制进程终止/真实区块卸载恢复/模板损坏资源重载：NOT RUN。
 - [ ] 普通 Dedicated Server `runServer`：NOT RUN。
 
-注意：M0-011 已由用户于 2026-11-06 实际执行 `gradlew.bat build` 并在原存档运行 `/empires debug validate`，获得 0 errors / 0 warnings。新增的 M0-012 GameTests 尚未在用户环境运行，不得提前标记通过。
+注意：M0-011 已由用户于 2026-11-06 实际执行 `gradlew.bat build` 并在原存档运行 `/empires debug validate`，获得 0 errors / 0 warnings。用户已于 2026-11-06 实际运行 `gradlew.bat runGameTestServer --console=plain`：8 项必需 GameTest 全部通过，Gradle BUILD SUCCESSFUL in 1m 5s。`futureSchemaIsPreservedReadOnly` 故意触发 schema=4 的 read-only ERROR 日志，属于预期测试信号；对应断言通过，不表示正式世界存档损坏。
