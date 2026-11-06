@@ -17,7 +17,7 @@ Minecraft Java Edition 的文明经营、基地建设与即时战略模组。项
 
 ### 已实现并有实际游戏测试记录
 
-- 世界级 `EmpiresWorldData` SavedData，schema 3；保留 world UUID 和既有势力、聚落、居民数据。
+- 世界级 `EmpiresWorldData` SavedData，当前 schema 4；schema 3 存档可迁移，保留 world UUID、既有势力、聚落、居民和建筑记录。
 - Faction、Settlement、Citizen 逻辑记录及其引用校验。
 - Citizen 实体与逻辑身份分离的基础绑定/查询/生成/移除命令。
 - M0-008 远程数据模拟调度器：服务器运行时推进，默认不做离线追赶，不要求远程区块加载。当前木材增量仍是**测试信号**，不是正式经济产出。
@@ -36,13 +36,14 @@ Minecraft Java Edition 的文明经营、基地建设与即时战略模组。项
 - M1-003 建筑放置预检已验收：用户本地 22/22 GameTests 通过；原存档 status 正常，validate PASS（0 errors/0 warnings）。该次日志片段未包含 Gradle 最终构建行。
 - M1-004 ResourceLedger 全额 escrow 原子预留已验收：用户本地 29/29 Forge GameTests 通过；「新的世界2」worldId/schema 不变，status 正常，validate PASS（0 errors/0 warnings）。该次日志未显示 Gradle 最终 BUILD SUCCESSFUL 行；Dedicated Server/真实多人测试仍待执行。详见 [M1-004 验收记录](docs/M1-004-RESOURCE-RESERVATION.md)。
 - M1-005 ConstructionProject 状态机已验收：用户本地 **38/38 required Forge GameTests PASS**；原存档「新的世界2」仍为 schema=3、readOnly=false，worldId 不变，factions=1、settlements=2、citizens=3、buildings=2，/empires debug validate 为 PASS（0 errors/0 warnings）。测试覆盖施工启动、累计进度扣减 escrow、stale expectedProgress 拒绝、完成/世界同步激活门槛和 SavedData 往返。用户提供的日志未包含 Gradle 最终 BUILD SUCCESSFUL 行；Dedicated Server/真实多人测试仍未执行。详见 [M1-005 专项说明](docs/M1-005-CONSTRUCTION-PROJECT.md)。
+- M1-006 Builder Job 已在开发分支实现：施工启动与唯一 AVAILABLE Builder Job 同一 SavedData mutation；新增居民 Builder 职业标记、任务领取/开工/释放/阻塞/重试/完成状态机、同一工人/建筑唯一活动任务约束，以及 schema 3 → 4 迁移（为已有 UNDER_CONSTRUCTION 项目补建任务）。新增 9 项 Forge GameTests，完整回归预计 **47 项**；等待用户本地 build/GameTest 与「新的世界2」schema 迁移回归验收。寻路、自动工人调度和分阶段方块呈现不在本任务范围。详见 [M1-006 专项说明](docs/M1-006-BUILDER-JOBS.md)。
 
 ### 明确尚未完成
 
 - M0-011 Dedicated Server 验收、损坏数据 fixture 自动化测试。
 - M0-012 集成验收进行中：新增 8 个 Forge GameTests，覆盖 SavedData 完成/中途游标往返、真实模板校验与方块放置、人口缓存、建筑重叠、重复实体 UUID、未来 schema 只读保护；用户于 2026-11-06 已在本地完成 `gradlew.bat build`（BUILD SUCCESSFUL in 38s）和 `gradlew.bat runGameTestServer --console=plain`（8/8 required tests passed，BUILD SUCCESSFUL in 1m 5s）。
 - 手工集成验收仍需覆盖中途强制停止恢复、目标区块卸载/重新加载、模板篡改和原存档回归。
-- M1：正式大本营、材料预留、施工项目、Builder Job、施工进度、完成/激活、取消与修复。
+- M1：施工寻路/自动调度、分阶段方块施工、取消退款、修复/损坏生命周期、基地管理 UI 与 M1 集成测试。
 - M2 及以后：完整职业、资源点、生产仓储、种族、科技、军事 RTS、AI 文明、外交和多人等。
 
 ## 开发与运行
@@ -78,6 +79,15 @@ Gradle 8.8 目前会提示部分旧 API/插件功能已弃用；这类提示不�
 /empires debug start-construction <buildingUUID>
 /empires debug apply-construction-work <buildingUUID> <expectedProgress> <workPoints>
 /empires debug activate-building <buildingUUID>
+/empires debug assign-builder <citizenUUID>
+/empires debug create-builder-job <buildingUUID> [priority]
+/empires debug list-builder-jobs [buildingUUID]
+/empires debug claim-builder-job <jobUUID> <citizenUUID>
+/empires debug start-builder-job <jobUUID> <citizenUUID>
+/empires debug release-builder-job <jobUUID> <citizenUUID>
+/empires debug block-builder-job <jobUUID> <citizenUUID>
+/empires debug retry-builder-job <jobUUID>
+/empires debug complete-builder-job <jobUUID>
 ```
 
 `validate` 只检查已加载的逻辑 SavedData，不读写真实区块或方块，不自动修复存档。详细范围和已知限制见 [M0-011 验收说明](docs/M0-011-WORLD-DATA-VALIDATION.md)。
@@ -108,6 +118,7 @@ Gradle 8.8 目前会提示部分旧 API/插件功能已弃用；这类提示不�
 - [M1-003 放置预检查](docs/M1-003-PLACEMENT-PRECHECK.md)
 - [M1-004 材料原子预留](docs/M1-004-RESOURCE-RESERVATION.md)
 - [M1-005 施工项目状态机](docs/M1-005-CONSTRUCTION-PROJECT.md)
+- [M1-006 Builder Job](docs/M1-006-BUILDER-JOBS.md)
 
 ## 存档与测试提醒
 
