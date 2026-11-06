@@ -35,7 +35,7 @@ function Invoke-GradleCheck {
 
     Push-Location $repoRoot
     try {
-        & $gradleWrapper @Arguments 2>&1 | Tee-Object -FilePath $logPath
+        & $gradleWrapper @Arguments 2>&1 | Tee-Object -FilePath $logPath | Out-Host
         $gradleExitCode = $LASTEXITCODE
     }
     finally {
@@ -46,7 +46,7 @@ function Invoke-GradleCheck {
     $hasSuccessMarker = $logText -match $SuccessPattern
     $passed = ($gradleExitCode -eq 0) -and $hasSuccessMarker
 
-    $results += [pscustomobject]@{
+    $script:results += [pscustomobject]@{
         Name = $Name
         Passed = $passed
         ExitCode = $gradleExitCode
