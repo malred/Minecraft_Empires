@@ -71,6 +71,34 @@
 - 本轮未测试 `UNDER_CONSTRUCTION` 取消、剩余 escrow 部分退款、已放置方块保留、Builder Job 工人释放或 PENDING 放置停止。
 - 本轮日志片段没有 Gradle 最终构建摘要；自动化构建与 55/55 GameTests 的 PASS 依据此前用户提供的独立日志。
 
+### 真实客户端：UNDER_CONSTRUCTION 部分施工取消
+
+**PASS — 用户于 2026-11-06 在既有世界「新的世界2」完成 50% 施工后取消的真实客户端验收。**
+
+测试对象：
+- Building：`140d3154-f8e5-4975-ba13-bd226302d699`。
+- Faction：`c2a593a0-ac36-4f90-8bbf-dd0cb5660a32`（Test Wolves）。
+- Settlement：`cca48d0a-89af-4b8c-b651-b612390baaf3`。
+- Blueprint：`empires:warehouse_prototype`，origin `(2170,63,1853))。
+- 取消前 Builder Job：`2f0e1eed-ccac-3240-8ee9-ccd3fb5f14d6`。
+
+实际过程与观察：
+1. 取消测试前势力库存中圆石/木板各为 9；分别追加 9 后，两种材料库存均为 18。
+2. `plan-building` 创建 PLANNED 记录；随后预留材料，Building 变为 RESERVED，可用库存各剩 9，escrow 各为 9。
+3. `start-construction` 成功，Building 变为 UNDER_CONSTRUCTION，进度 `0/100`；Builder Job 自动创建为 AVAILABLE、worker=none。
+4. 执行 `apply-construction-work <buildingUUID> 0 50` 后，Building 保持 UNDER_CONSTRUCTION、进度 `50/100`；escrow 为圆石/木板各 5，`worldSync=PENDING)。
+5. 等待放置后，`building-placement` 报告 `cursor=12/25`、`originChunkLoaded=true)；`show-building` 同时确认 `placementCursor=12)。
+6. 取消命令返回 `CANCELLED)、`escrowCleared=true)、`progress=50/100)、`placedBlocksPreserved=true)。
+7. 取消后 `show-building` 确认状态为 CANCELLED，进度仍为 `50/100`，escrow 为空，`worldSync=PENDING)、`placementCursor=12)。
+8. 取消后库存显示圆石/木板各为 14。即每种材料都只退回剩余 5 个；已按累计进度消耗的 4 个没有退回。
+9. `list-builder-jobs <buildingUUID>` 显示关联 Job 为 CANCELLED、worker=none、retries=0。
+10. 取消后约 24 秒内的后续查询仍显示 `cursor=12/25)、Building CANCELLED；游标没有继续推进。最终 Validator PASS，0 errors、0 warnings。单人服务器断开后，日志显示三个维度的区块均已保存，模组服务正常停止。
+
+本轮测试边界：
+- 日志通过 cursor=12/25 的取消前后保持，以及取消后延迟查询未推进，验证了放置进度停止；但没有独立的截图/文字记录说明用户逐块目视核对了已呈现方块。因此记录为游标/调度停止 PASS，不额外声称完成独立的方块视觉检查。
+- Builder Job 在取消前为 AVAILABLE、worker=none。此次验证了关联 Job 随施工取消而变为 CANCELLED，但没有实际领取者，因此**没有单独验证已分配工人的释放**。
+- 本轮附件是客户端命令日志，没有新的 Gradle build/GameTest 摘要；55/55 GameTests 与 BUILD SUCCESSFUL 仍以此前用户提供的自动化测试日志为证据。
+
 ### 尚待验收
 
 - **UNDER_CONSTRUCTION 真实客户端取消：待完成。** 需验证按当前剩余 escrow 退款、已放置方块保留、施工进度/cursor/worldSync 保留、Builder Job 取消并释放工人、PENDING 调度不再写方块。
