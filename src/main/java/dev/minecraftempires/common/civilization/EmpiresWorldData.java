@@ -1,6 +1,8 @@
 package dev.minecraftempires.common.civilization;
 
 import dev.minecraftempires.MinecraftEmpires;
+import dev.minecraftempires.common.building.BlueprintCatalog;
+import dev.minecraftempires.common.building.BlueprintDefinition;
 import dev.minecraftempires.common.building.BuildingRecord;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -215,6 +217,36 @@ public final class EmpiresWorldData extends SavedData {
         if (currentBuilding.state() != dev.minecraftempires.common.building.BuildingState.PLANNED
                 || reservedBuilding.state() != dev.minecraftempires.common.building.BuildingState.RESERVED) {
             throw new IllegalStateException("Atomic material reservation requires PLANNED -> RESERVED transition");
+        }
+        final BlueprintDefinition blueprint = BlueprintCatalog.find(currentBuilding.blueprintId())
+                .orElseThrow(() -> new IllegalStateException("Reservation references unknown blueprint: "
+                        + currentBuilding.blueprintId()));
+        if (currentBuilding.blueprintVersion() != blueprint.version()
+                || reservedBuilding.blueprintVersion() != blueprint.version()) {
+            throw new IllegalStateException("Reservation blueprint version does not match the catalog: "
+                    + currentBuilding.blueprintId());
+        }
+        if (!reservedBuilding.reservedMaterials().asMap().equals(blueprint.materials().asMap())) {
+            throw new IllegalArgumentException("Building escrow must equal the full blueprint material cost");
+        }
+        final ResourceLedger expectedRemaining;
+        try {
+            expectedRemaining = currentFaction.resources().minus(reservedBuilding.reservedMaterials());
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalArgumentException("Faction inventory cannot cover the requested reservation: "
+                    + exception.getMessage(), exception);
+        }
+        if (!updatedFaction.resources().asMap().equals(expectedRemaining.asMap())) {
+            throw new IllegalArgumentException("Atomic reservation faction balance must equal the exact escrow debit");
+        }
+        if (!currentFaction.displayName().equals(updatedFaction.displayName())
+                || !currentFaction.speciesId().equals(updatedFaction.speciesId())
+                || currentFaction.controllerType() != updatedFaction.controllerType()
+                || currentFaction.status() != updatedFaction.status()
+                || !java.util.Objects.equals(currentFaction.capitalSettlementId(), updatedFaction.capitalSettlementId())
+                || currentFaction.populationCountCache() != updatedFaction.populationCountCache()
+                || currentFaction.createdAtGameTime() != updatedFaction.createdAtGameTime()) {
+            throw new IllegalArgumentException("Material reservation cannot change unrelated faction fields");
         }
         if (!currentBuilding.reservedMaterials().isEmpty()) {
             throw new IllegalStateException("PLANNED building already contains reserved materials: " + currentBuilding.id());
