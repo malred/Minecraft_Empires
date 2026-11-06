@@ -154,6 +154,17 @@ public final class BuilderJobRecord {
         return copy(assignedCitizenId, BuilderJobState.COMPLETED, retryCount, gameTime);
     }
 
+    /** Cancels any non-terminal job and releases its assigned worker without counting a retry. */
+    public BuilderJobRecord cancel(final long gameTime) {
+        if (state.isTerminal()) {
+            if (state == BuilderJobState.CANCELLED) {
+                return this;
+            }
+            throw new IllegalStateException("Completed or failed builder job cannot be cancelled: " + id);
+        }
+        return copy(null, BuilderJobState.CANCELLED, retryCount, gameTime);
+    }
+
     public boolean sameSnapshot(final BuilderJobRecord other) {
         return other != null
                 && id.equals(other.id)
