@@ -115,21 +115,41 @@ schema 4 如果缺少任务列表、任务目标/归属错误、同一 worker/�
 
 ## 本地验收状态
 
-**待用户本地验收。** 助手已在 GitHub feature branch 上完成代码和文档修改，但没有本地 Forge Gradle 环境，未运行 build、GameTestServer、客户端或 Dedicated Server。不能将编译或 47 项测试标记为 PASS。
+**PASS — 2026-11-06（用户本地 Forge 环境）**
 
-建议本地执行：
+### GameTests
 
-```powershell
-git pull --ff-only origin main
-.\gradlew.bat build runGameTestServer --console=plain
-```
+用户提供的 GameTestServer 日志：
+- 10:28:18：`47 GAME TESTS COMPLETE`
+- 10:28:18：`All 47 required tests passed :)`
+- GameTestServer 随后正常停止，所有维度区块均保存完成。
 
-本地应确认：
-- 编译无错误；
-- `All 47 required tests passed :)`；
-- Gradle 最终 `BUILD SUCCESSFUL`；
-- 用已有「新的世界2」存档启动客户端后，`/empires debug status` 显示 worldId 仍为 `6ba6a5f4-e5f9-4e01-bfaa-f86a0aeac64c`、schema=4、readOnly=false；
-- `/empires debug validate` 为 PASS、0 errors、0 warnings；
-- Faction/Settlement/Citizen/Building 数量和建筑方块未被迁移破坏。
+因此，M0/M1 当前要求的 **47/47 required Forge GameTests：PASS**。本任务新增的 9 项测试覆盖开工创建唯一 Job、Builder 资格、worker/建筑唯一活动任务、任务开始/释放/阻塞/重试、完成门槛、schema 3 迁移和 SavedData round-trip。
 
-运行前先备份世界目录。迁移不要求创建新世界或重新放置已有建筑。
+### 原存档回归
+
+用户进入原有世界「新的世界2」后提供了以下日志：
+- 10:29:32：玩家进入世界。
+- 10:29:34：status 显示 `schema=4`、`worldId=6ba6a5f4-e5f9-4e01-bfaa-f86a0aeac64c`、`factions=1`、`settlements=2`、`citizens=3`、`readOnly=false`。
+- 10:29:39：`World validation: PASS`，`buildings=2`、`errors=0`、`warnings=0`，并显示 `No consistency issues found.`
+- 10:29:42：`/empires debug list-builder-jobs` 返回 `No builder jobs found.`
+
+旧存档由 schema 3 成功迁移到 schema 4；worldId 不变，原有势力、聚落、居民和两条建筑记录均保留。Validator 的规则要求每个 UNDER_CONSTRUCTION 建筑都有一个活动 Builder Job；本次 Validator 通过且任务列表为空，说明当前这两个既有建筑中没有处于 UNDER_CONSTRUCTION 的项目，因此迁移无需为它们补任务。这是符合迁移条件的结果，不代表任务创建功能未工作；任务自动创建及 schema 3 fixture 迁移由 47 项 GameTests 覆盖。
+
+### 验收结论
+
+| 验收项 | 结果 |
+|---|---|
+| 47 项 required Forge GameTests | **PASS** |
+| 原存档 schema 3 → 4 | **PASS** |
+| 原 worldId 保持不变 | **PASS** |
+| readOnly=false | **PASS** |
+| Faction/Settlement/Citizen/Building 记录数量保持 | **PASS**（1/2/3/2） |
+| WorldDataValidator | **PASS**（0 errors、0 warnings） |
+| 当前存档 Builder Job 列表 | **PASS**（为空；当前无 UNDER_CONSTRUCTION 项目） |
+| Gradle 最终 `BUILD SUCCESSFUL` 摘要 | **NOT SHOWN**（用户提供的日志片段止于 GameTestServer/游戏服务器关闭，没有 Gradle 最终摘要） |
+| Dedicated Server / 真实多人 | **NOT RUN / NOT VERIFIED** |
+
+本任务不要求删除或重建「新的世界2」，也不要求重放或覆盖已有建筑。运行新版本前仍建议保留世界备份。
+
+助手没有在自己的环境运行 Forge Gradle、GameTestServer、客户端或 Dedicated Server；上述 PASS 结论依据用户提供的本地日志。
