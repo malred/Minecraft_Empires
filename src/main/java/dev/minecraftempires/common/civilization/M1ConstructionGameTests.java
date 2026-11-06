@@ -266,6 +266,27 @@ public final class M1ConstructionGameTests {
         helper.succeed();
     }
 
+    @GameTest(
+            template = "gametest_empty_5x5x5",
+            templateNamespace = "empires",
+            batch = "empires.m1_007",
+            timeoutTicks = 20
+    )
+    public static void stagedPlacementTargetIsMonotonicAndReachesFullTemplate(final GameTestHelper helper) {
+        final int totalBlocks = 204;
+        final int zero = dev.minecraftempires.common.building.BuildingPlacementService
+                .targetBlockCount(0L, 100L, totalBlocks);
+        final int first = dev.minecraftempires.common.building.BuildingPlacementService
+                .targetBlockCount(1L, 100L, totalBlocks);
+        final int middle = dev.minecraftempires.common.building.BuildingPlacementService
+                .targetBlockCount(50L, 100L, totalBlocks);
+        final int complete = dev.minecraftempires.common.building.BuildingPlacementService
+                .targetBlockCount(100L, 100L, totalBlocks);
+        helper.assertTrue(zero == 0 && first <= middle && middle < complete && complete == totalBlocks,
+                "Staged placement must map work progress monotonically to a complete template prefix");
+        helper.succeed();
+    }
+
     private static Fixture createUnreservedFixture(
             final GameTestHelper helper,
             final String factionName
