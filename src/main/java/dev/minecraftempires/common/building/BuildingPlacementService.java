@@ -43,7 +43,9 @@ public final class BuildingPlacementService {
             final int rotationDegrees,
             final long gameTime
     ) {
-        service.worldData().ensureWritable();
+        if (service.worldData().isReadOnly()) {
+            throw new IllegalStateException("World data is read-only; building plans cannot be created");
+        }
 
         final SettlementRecord settlement = service.findSettlement(settlementId)
                 .orElseThrow(() -> new IllegalArgumentException("Settlement does not exist: " + settlementId));
