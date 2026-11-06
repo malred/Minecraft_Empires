@@ -42,7 +42,16 @@ buildingId、blueprintId、blueprintVersion、ownerFactionId、settlementId、di
 
 jobId、jobType、ownerFactionId、targetId、assignedCitizenId、state、priority、createdAtGameTime、updatedAtGameTime、retryCount、reservationIds、schemaVersion。
 
-### BuilderJobRecord（M1-006）
+### Building cancellation and escrow
+
+- `BuildingState.CANCELLED` is a terminal logical state for a cancelled plan/construction project; it is distinct from `DEMOLISHED` (a future physical teardown lifecycle).
+- Cancelling PLANNED refunds nothing; RESERVED returns its full escrow; UNDER_CONSTRUCTION returns only the persisted remaining escrow. Consumed construction materials are not refunded.
+- Cancellation atomically publishes faction inventory credit, BuildingRecord terminal state, and associated BuilderJobRecord cancellation. A cancelled builder job clears its worker assignment and does not increment retryCount.
+- Cancellation preserves construction progress, placement cursor, worldSync metadata, and all already placed Minecraft blocks. It does not automatically remove or overwrite world blocks.
+- CANCELLED records remain in the settlement reverse index and are excluded from active footprint/headquarters uniqueness checks. They remain available for audit/history.
+- Repeating cancellation is a read-only no-op after verifying escrow is empty and no active builder job remains. Arithmetic overflow or stale snapshots fail before any map is published.
+
+## BuilderJobRecord（M1-006）
 
 BuilderJobRecord 是施工项目的持久化工作分配，不是居民实体或路径对象。字段：
 
