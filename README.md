@@ -72,6 +72,7 @@ Gradle 8.8 目前会提示部分旧 API/插件功能已弃用；这类提示不�
 /empires debug building-placement <buildingUUID>
 /empires debug place-building <buildingUUID>
 /empires debug resume-building-placement <buildingUUID>
+/empires debug reserve-building-materials <buildingUUID>
 ```
 
 `validate` 只检查已加载的逻辑 SavedData，不读写真实区块或方块，不自动修复存档。详细范围和已知限制见 [M0-011 验收说明](docs/M0-011-WORLD-DATA-VALIDATION.md)。
@@ -99,7 +100,8 @@ Gradle 8.8 目前会提示部分旧 API/插件功能已弃用；这类提示不�
 - [M0-012 集成测试](docs/M0-012-INTEGRATION-TESTS.md)
 - [M1-001 大本营内容注册](docs/M1-001-HEADQUARTERS-CONTENT.md)
 - [M1-002 大本营唯一性服务](docs/M1-002-CAPITAL-UNIQUENESS.md)
-- [M1-003 放置预检查](docs/M1-003-PLACEMENT-PRECHECK.md)\n- [M1-004 材料原子预留](docs/M1-004-RESOURCE-RESERVATION.md)
+- [M1-003 放置预检查](docs/M1-003-PLACEMENT-PRECHECK.md)
+- [M1-004 材料原子预留](docs/M1-004-RESOURCE-RESERVATION.md)
 
 ## 存档与测试提醒
 
