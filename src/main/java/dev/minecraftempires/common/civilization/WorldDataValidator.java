@@ -331,10 +331,6 @@ public final class WorldDataValidator {
                     issues.add(new Issue(Severity.ERROR, "Building " + job.buildingId()
                             + " has multiple active builder jobs " + previous + " and " + job.id() + "."));
                 }
-            } else if (job.state() == BuilderJobState.COMPLETED
-                    && building.state() != BuildingState.ACTIVE) {
-                issues.add(new Issue(Severity.ERROR, "Completed builder job " + job.id()
-                        + " targets non-ACTIVE building " + building.id() + "."));
             }
             if (job.state().requiresAssignedCitizen()) {
                 final CitizenRecord citizen = citizens.get(job.assignedCitizenId());
