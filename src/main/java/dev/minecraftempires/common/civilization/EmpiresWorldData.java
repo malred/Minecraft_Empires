@@ -193,6 +193,62 @@ public final class EmpiresWorldData extends SavedData {
         setDirty();
     }
 
+    /**
+     * Publishes a faction inventory debit and its building escrow as one SavedData mutation.
+     * All replacement values are validated and prepared before either map is changed.
+     */
+    void putBuildingReservation(final FactionRecord updatedFaction, final BuildingRecord reservedBuilding) {
+        ensureWritable();
+
+        final FactionRecord currentFaction = factions.get(updatedFaction.id());
+        if (currentFaction == null) {
+            throw new IllegalArgumentException("Reservation faction does not exist: " + updatedFaction.id());
+        }
+        final BuildingRecord currentBuilding = buildings.get(reservedBuilding.id());
+        if (currentBuilding == null) {
+            throw new IllegalArgumentException("Reservation building does not exist: " + reservedBuilding.id());
+        }
+        if (!currentBuilding.ownerFactionId().equals(updatedFaction.id())
+                || !reservedBuilding.ownerFactionId().equals(updatedFaction.id())) {
+            throw new IllegalArgumentException("Reservation faction does not own building " + reservedBuilding.id());
+        }
+        if (currentBuilding.state() != dev.minecraftempires.common.building.BuildingState.PLANNED
+                || reservedBuilding.state() != dev.minecraftempires.common.building.BuildingState.RESERVED) {
+            throw new IllegalStateException("Atomic material reservation requires PLANNED -> RESERVED transition");
+        }
+        if (!currentBuilding.reservedMaterials().isEmpty()) {
+            throw new IllegalStateException("PLANNED building already contains reserved materials: " + currentBuilding.id());
+        }
+        if (!currentBuilding.settlementId().equals(reservedBuilding.settlementId())
+                || !currentBuilding.blueprintId().equals(reservedBuilding.blueprintId())
+                || currentBuilding.blueprintVersion() != reservedBuilding.blueprintVersion()
+                || !currentBuilding.dimensionId().equals(reservedBuilding.dimensionId())
+                || !currentBuilding.origin().equals(reservedBuilding.origin())
+                || currentBuilding.rotationDegrees() != reservedBuilding.rotationDegrees()
+                || currentBuilding.placementCursor() != reservedBuilding.placementCursor()
+                || currentBuilding.worldSyncState() != reservedBuilding.worldSyncState()
+                || currentBuilding.constructionProgress() != reservedBuilding.constructionProgress()
+                || currentBuilding.workPointsRequired() != reservedBuilding.workPointsRequired()) {
+            throw new IllegalArgumentException("Reservation cannot change the building identity or placement: "
+                    + reservedBuilding.id());
+        }
+
+        final SettlementRecord settlement = settlements.get(currentBuilding.settlementId());
+        if (settlement == null
+                || !settlement.ownerFactionId().equals(updatedFaction.id())
+                || !settlement.dimensionId().equals(currentBuilding.dimensionId())) {
+            throw new IllegalStateException("Reservation building has an invalid owning settlement: "
+                    + currentBuilding.id());
+        }
+        final SettlementRecord indexedSettlement = settlement.withBuildingId(currentBuilding.id());
+
+        // Single server-thread publication: readers never observe a debit without its matching escrow.
+        factions.put(updatedFaction.id(), updatedFaction);
+        buildings.put(reservedBuilding.id(), reservedBuilding);
+        settlements.put(settlement.id(), indexedSettlement);
+        setDirty();
+    }
+
     void setSimulationClock(final long gameTime) {
         ensureWritable();
         if (gameTime < simulationClock) {
