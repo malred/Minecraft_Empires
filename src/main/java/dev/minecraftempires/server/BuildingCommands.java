@@ -88,6 +88,11 @@ public final class BuildingCommands {
                                                 LongArgumentType.getLong(context, "expectedProgress"),
                                                 LongArgumentType.getLong(context, "workPoints")))))));
 
+        debug.then(Commands.literal("cancel-building")
+                .then(Commands.argument("building", StringArgumentType.word())
+                        .executes(context -> cancelBuilding(
+                                context.getSource(), StringArgumentType.getString(context, "building")))));
+
         debug.then(Commands.literal("activate-building")
                 .then(Commands.argument("building", StringArgumentType.word())
                         .executes(context -> activateBuilding(
@@ -201,6 +206,28 @@ public final class BuildingCommands {
                             + " | progress=" + building.constructionProgress() + "/" + building.workPointsRequired()
                             + " | escrow=" + building.reservedMaterials().asMap()
                             + " | worldSync=" + building.worldSyncState()), true);
+            return 1;
+        } catch (IllegalArgumentException | IllegalStateException exception) {
+            source.sendFailure(Component.literal(exception.getMessage()));
+            return 0;
+        }
+    }
+
+    private static int cancelBuilding(
+            final CommandSourceStack source,
+            final String buildingText
+    ) {
+        try {
+            final UUID buildingId = UUID.fromString(buildingText);
+            final BuildingRecord building = CivilizationService.forLevel(source.getLevel())
+                    .cancelBuilding(buildingId, source.getLevel().getGameTime());
+            source.sendSuccess(() -> Component.literal(
+                    "Building cancellation " + building.state()
+                            + " | building=" + building.id()
+                            + " | refunded=" + building.reservedMaterials().asMap()
+                            + " | progress=" + building.constructionProgress() + "/" + building.workPointsRequired()
+                            + " | placedBlocksPreserved=true"
+            ), true);
             return 1;
         } catch (IllegalArgumentException | IllegalStateException exception) {
             source.sendFailure(Component.literal(exception.getMessage()));
