@@ -69,7 +69,7 @@ GameTest 不替代下列真实运行场景：
 - [x] 八个 GameTest 方法已加入源码。
 - [x] GameTestServer 采用独立 `run-gametest` 工作目录。
 - [x] 不增加第三方依赖。
-- [ ] 用户本地 `gradlew.bat build`：等待本轮新测试代码后运行。
+- [x] 用户本地 `gradlew.bat build`：BUILD SUCCESSFUL（2026-11-06，38s；7 actionable tasks）。
 - [ ] 用户本地 `gradlew.bat runGameTestServer`：等待运行。
 - [ ] 原存档完整回归：部分项目已通过，仍需本轮回归确认。
 - [ ] 中途强制中断/区块卸载/模板损坏：NOT RUN。
