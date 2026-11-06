@@ -33,3 +33,13 @@
 - After adding the M0-012 GameTest suite and placement-service test overloads, user ran `gradlew.bat build`: PASS, BUILD SUCCESSFUL in 38s, 7 actionable tasks.
 - Two ResourceLocation(String, String) removal warnings are in the GameTest fixture constants; they are non-fatal. BuildingPlacementService also emits a generic deprecated API note.
 - `gradlew.bat runGameTestServer`: NOT RUN yet.
+
+
+## User verification update — 2026-11-06 (GameTest)
+
+- User ran `gradlew.bat runGameTestServer --console=plain` on Windows 11 / Java 17.0.12 / Forge 47.4.28.
+- Forge launched the isolated GameTest server and executed batch `empires.m0_012` with 8 tests.
+- Result: `All 8 required tests passed :)`; `BUILD SUCCESSFUL in 1m 5s`; 10 actionable tasks.
+- The schema=4 read-only ERROR log is expected from `futureSchemaIsPreservedReadOnly`, which verifies forward-schema data preservation; it is not the user's normal world save.
+- First-run server.properties missing-file stack trace and Forge config self-correction logs were non-fatal; GameTestServer started and all tests passed.
+- Still NOT RUN: normal save regression after this change, kill-process mid-placement recovery, real chunk unload/reload, malformed template reload, ordinary `runServer` startup/shutdown.
