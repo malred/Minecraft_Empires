@@ -3,6 +3,7 @@ package dev.minecraftempires.common.civilization;
 import dev.minecraftempires.common.building.BlueprintCatalog;
 import dev.minecraftempires.common.building.BlueprintDefinition;
 import dev.minecraftempires.common.building.BuildingRecord;
+import dev.minecraftempires.common.building.ConstructionProject;
 import dev.minecraftempires.common.building.BuildingState;
 import dev.minecraftempires.common.building.WorldSyncState;
 
@@ -195,15 +196,60 @@ public final class WorldDataValidator {
                         + " references unknown blueprint " + building.blueprintId() + "."));
                 continue;
             }
-            if (building.state() == BuildingState.PLANNED && !building.reservedMaterials().isEmpty()) {
-                issues.add(new Issue(Severity.ERROR, "PLANNED building " + building.id()
-                        + " contains reserved materials before its reservation transaction."));
+            if (building.workPointsRequired() != blueprint.workPoints()) {
+                issues.add(new Issue(Severity.ERROR, "Building " + building.id()
+                        + " workPointsRequired=" + building.workPointsRequired()
+                        + " but blueprint requires " + blueprint.workPoints() + "."));
             }
-            if (building.state() == BuildingState.RESERVED
-                    && !building.reservedMaterials().asMap().equals(blueprint.materials().asMap())) {
-                issues.add(new Issue(Severity.ERROR, "RESERVED building " + building.id()
-                        + " escrow does not match the full blueprint material cost; expected="
-                        + blueprint.materials().asMap() + ", actual=" + building.reservedMaterials().asMap() + "."));
+            switch (building.state()) {
+                case PLANNED -> {
+                    if (!building.reservedMaterials().isEmpty()) {
+                        issues.add(new Issue(Severity.ERROR, "PLANNED building " + building.id()
+                                + " contains reserved materials before its reservation transaction."));
+                    }
+                    if (building.constructionProgress() != 0L) {
+                        issues.add(new Issue(Severity.ERROR, "PLANNED building " + building.id()
+                                + " has construction progress before reservation."));
+                    }
+                }
+                case RESERVED -> {
+                    if (!building.reservedMaterials().asMap().equals(blueprint.materials().asMap())) {
+                        issues.add(new Issue(Severity.ERROR, "RESERVED building " + building.id()
+                                + " escrow does not match the full blueprint material cost; expected="
+                                + blueprint.materials().asMap() + ", actual=" + building.reservedMaterials().asMap() + "."));
+                    }
+                    if (building.constructionProgress() != 0L) {
+                        issues.add(new Issue(Severity.ERROR, "RESERVED building " + building.id()
+                                + " has construction progress before work starts."));
+                    }
+                }
+                case UNDER_CONSTRUCTION -> {
+                    if (building.workPointsRequired() == blueprint.workPoints()) {
+                        final ResourceLedger expectedEscrow = ConstructionProject.remainingEscrow(
+                                blueprint.materials(), building.constructionProgress(), building.workPointsRequired());
+                        if (!building.reservedMaterials().asMap().equals(expectedEscrow.asMap())) {
+                            issues.add(new Issue(Severity.ERROR, "UNDER_CONSTRUCTION building " + building.id()
+                                    + " escrow does not match cumulative work; expected="
+                                    + expectedEscrow.asMap() + ", actual=" + building.reservedMaterials().asMap() + "."));
+                        }
+                    }
+                    if (building.constructionProgress() == building.workPointsRequired()
+                            && building.worldSyncState() == WorldSyncState.SYNCED) {
+                        issues.add(new Issue(Severity.WARNING, "Building " + building.id()
+                                + " has completed work and SYNCED blocks but is awaiting ACTIVE transition."));
+                    }
+                }
+                case ACTIVE -> {
+                    if (building.constructionProgress() != building.workPointsRequired()
+                            || !building.reservedMaterials().isEmpty()
+                            || building.worldSyncState() != WorldSyncState.SYNCED) {
+                        issues.add(new Issue(Severity.ERROR, "ACTIVE building " + building.id()
+                                + " must have complete work, empty escrow, and SYNCED world blocks."));
+                    }
+                }
+                default -> {
+                    // Repair/damage/demolition lifecycle validation is handled by later M1 tasks.
+                }
             }
             if (blueprint.category() == dev.minecraftempires.common.building.BuildingCategory.HEADQUARTERS
                     && building.state() != BuildingState.DEMOLISHED) {
