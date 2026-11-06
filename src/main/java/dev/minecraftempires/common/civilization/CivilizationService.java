@@ -155,6 +155,7 @@ public final class CivilizationService {
 
     /** Moves a fully reserved project into the work phase. Repeating start is a read-only no-op. */
     public BuildingRecord startConstruction(final UUID buildingId) {
+        worldData.ensureWritable();
         final BuildingRecord building = repository.findBuilding(buildingId)
                 .orElseThrow(() -> new IllegalArgumentException("Building does not exist: " + buildingId));
         return startConstruction(buildingId, Math.max(worldData.simulationClock(), building.createdAtGameTime()));
@@ -430,14 +431,14 @@ public final class CivilizationService {
         worldData.ensureWritable();
         final BuilderJobRecord job = repository.findBuilderJob(jobId)
                 .orElseThrow(() -> new IllegalArgumentException("Builder job does not exist: " + jobId));
+        if (job.state() == BuilderJobState.COMPLETED) {
+            return job;
+        }
         final BuildingRecord building = repository.findBuilding(job.buildingId())
                 .orElseThrow(() -> new IllegalStateException("Builder job target building is missing: " + job.buildingId()));
         if (building.state() != BuildingState.ACTIVE) {
             throw new IllegalStateException("Builder job cannot complete before its building is ACTIVE: "
                     + building.id());
-        }
-        if (job.state() == BuilderJobState.COMPLETED) {
-            return job;
         }
         final BuilderJobRecord completed = job.complete(gameTime);
         repository.saveBuilderJob(job, completed);
