@@ -10,7 +10,9 @@ Preview → Validate → Reserve Materials → Create BuildingRecord → Queue C
 拒绝超尺寸、越界、未加载区块、冲突结构、不可替换方块、未授权区域和不可信 BlockEntity NBT。校验失败不得扣材料。
 
 ## 施工
-ConstructionProject 保存进度、材料 escrow、worker job、分阶段 block placement queue。每 tick 有方块放置预算。工人离开/死亡可重新分配工作，进度不丢。
+施工逻辑状态按 PLANNED → RESERVED → UNDER_CONSTRUCTION → ACTIVE 推进。M1-005 以 BuildingRecord 作为持久化 ConstructionProject 聚合：RESERVED 时持有全额材料 escrow；UNDER_CONSTRUCTION 按累计 work points 的比例减少 escrow；只有 work points 完成、escrow 为空且世界模板 SYNCED 后才能 ACTIVE。施工批次以 expectedProgress 做 compare-and-set，避免重试重复计入。placementCursor 只代表模板写入游标，不代表施工进度。
+
+后续施工阶段由 ConstructionProject / Job 系统保存进度、材料 escrow、worker job、分阶段 block placement queue。每 tick 有方块放置预算。工人离开/死亡可重新分配工作，进度不丢。
 
 ## 玩家改造
 建筑完工后记录受管方块和 checksum。默认不在区块加载时自动覆盖玩家改造。修理只针对明确受管且已损坏的部分。自定义蓝图编辑/分享后续开发。
