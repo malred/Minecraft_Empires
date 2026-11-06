@@ -1,13 +1,17 @@
 package dev.minecraftempires.common.civilization;
 
 import dev.minecraftempires.MinecraftEmpires;
+import dev.minecraftempires.registry.ModBlocks;
+import dev.minecraftempires.registry.ModItems;
 import dev.minecraftempires.common.building.BlueprintCatalog;
 import dev.minecraftempires.common.building.BlueprintDefinition;
 import dev.minecraftempires.common.building.BlueprintTemplate;
+import dev.minecraftempires.common.building.BuildingCategory;
 import dev.minecraftempires.common.building.BuildingPlacementService;
 import dev.minecraftempires.common.building.BuildingRecord;
 import dev.minecraftempires.common.building.WorldSyncState;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
@@ -255,6 +259,38 @@ public final class M0IntegrationGameTests {
         helper.assertTrue(!report.passed(), "Duplicate entity UUID links were not rejected");
         helper.assertTrue(report.errorCount() == 1,
                 "Expected one duplicate entity UUID error, got " + report.errorCount());
+        helper.succeed();
+    }
+
+    @GameTest(
+            template = "gametest_empty_5x5x5",
+            templateNamespace = "empires",
+            batch = "empires.m1_001",
+            timeoutTicks = 20
+    )
+    public static void headquartersContentIsRegisteredAndTemplateValid(final GameTestHelper helper) {
+        final BlueprintDefinition blueprint = BlueprintCatalog.find(BlueprintCatalog.HEADQUARTERS_HALL_ID)
+                .orElseThrow();
+        final BlueprintTemplate template = BlueprintTemplate.load(
+                helper.getLevel().getServer().getResourceManager(), blueprint);
+
+        helper.assertTrue(blueprint.category() == BuildingCategory.HEADQUARTERS,
+                "Headquarters blueprint must use the HEADQUARTERS category");
+        helper.assertTrue(blueprint.sizeX() == 7 && blueprint.sizeY() == 8 && blueprint.sizeZ() == 7,
+                "Headquarters hall dimensions should remain 7x8x7");
+        helper.assertTrue(template.blocks().size() == 204,
+                "Headquarters hall template should contain 204 block entries");
+        helper.assertTrue(template.checksum().equals(blueprint.templateContentChecksum()),
+                "Headquarters hall template checksum does not match its catalog definition");
+        helper.assertTrue(BuiltInRegistries.BLOCK.getKey(ModBlocks.HEADQUARTERS_CORE.get())
+                        .equals(new ResourceLocation("empires", "headquarters_core")),
+                "Headquarters core block was not registered under the expected ID");
+        helper.assertTrue(BuiltInRegistries.ITEM.getKey(ModItems.HEADQUARTERS_BLUEPRINT.get())
+                        .equals(new ResourceLocation("empires", "headquarters_blueprint")),
+                "Headquarters blueprint item was not registered under the expected ID");
+        helper.assertTrue(template.blocks().stream().anyMatch(block ->
+                        block.blockId().equals(new ResourceLocation("empires", "headquarters_core"))),
+                "Headquarters template must include its registered core marker");
         helper.succeed();
     }
 

@@ -13,6 +13,8 @@ import java.util.LinkedHashMap;
 public final class BlueprintCatalog {
     public static final ResourceLocation WAREHOUSE_PROTOTYPE_ID =
             new ResourceLocation("empires", "warehouse_prototype");
+    public static final ResourceLocation HEADQUARTERS_HALL_ID =
+            new ResourceLocation("empires", "headquarters_hall");
 
     private static final Map<ResourceLocation, BlueprintDefinition> DEFINITIONS = createDefinitions();
 
@@ -50,6 +52,30 @@ public final class BlueprintCatalog {
                 "8a47481cbe75ded3675a14b840bba48b38b39180cfe40ae53007c5a096530e3a"
         );
         definitions.put(warehouse.id(), warehouse);
+
+        final ResourceLedger headquartersMaterials = ResourceLedger.of(Map.of(
+                new ResourceLocation("minecraft", "stone_bricks"), 49L,
+                new ResourceLocation("minecraft", "spruce_planks"), 139L,
+                new ResourceLocation("minecraft", "spruce_log"), 12L,
+                new ResourceLocation("minecraft", "glass"), 3L
+        ));
+        final BlueprintDefinition headquarters = new BlueprintDefinition(
+                HEADQUARTERS_HALL_ID,
+                BlueprintDefinition.CURRENT_SCHEMA_VERSION,
+                1,
+                BuildingCategory.HEADQUARTERS,
+                new ResourceLocation("empires", "structures/headquarters_hall"),
+                7, 8, 7,
+                headquartersMaterials,
+                800L,
+                List.of(new ResourceLocation("empires", "builder")),
+                Set.of(0, 90, 180, 270),
+                true,
+                false,
+                ProtectedBlocksPolicy.REPLACE_REPLACEABLE_ONLY,
+                "b221b5eea84f2087225c5ec4ad185b52523c6e6512b712d64e321fe4f01ea821"
+        );
+        definitions.put(headquarters.id(), headquarters);
         return Map.copyOf(definitions);
     }
 }

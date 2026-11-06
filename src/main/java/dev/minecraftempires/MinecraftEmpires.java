@@ -2,7 +2,9 @@ package dev.minecraftempires;
 
 import com.mojang.logging.LogUtils;
 import dev.minecraftempires.common.EmpiresConfig;
+import dev.minecraftempires.registry.ModBlocks;
 import dev.minecraftempires.registry.ModEntities;
+import dev.minecraftempires.registry.ModItems;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
@@ -21,6 +23,9 @@ public final class MinecraftEmpires {
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
         modEventBus.addListener(this::onCommonSetup);
         ModEntities.register(modEventBus);
+        ModBlocks.register(modEventBus);
+        ModItems.register(modEventBus);
+        modEventBus.addListener(ModItems::addCreative);
         modEventBus.addListener(ModEntities::onEntityAttributeCreation);
 
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, EmpiresConfig.SPEC);
