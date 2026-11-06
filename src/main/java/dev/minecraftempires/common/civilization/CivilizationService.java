@@ -128,6 +128,19 @@ public final class CivilizationService {
         if (settlementId.equals(faction.capitalSettlementId())) {
             return;
         }
+        for (BuildingRecord building : repository.buildings()) {
+            if (building.state() == BuildingState.DEMOLISHED
+                    || !building.ownerFactionId().equals(factionId)) {
+                continue;
+            }
+            final BlueprintDefinition blueprint = BlueprintCatalog.find(building.blueprintId()).orElse(null);
+            if (blueprint != null
+                    && blueprint.category() == dev.minecraftempires.common.building.BuildingCategory.HEADQUARTERS
+                    && !building.settlementId().equals(settlementId)) {
+                throw new IllegalStateException("Capital settlement cannot change while headquarters "
+                        + building.id() + " is reserved in settlement " + building.settlementId());
+            }
+        }
         repository.saveFaction(faction.withCapitalSettlement(settlementId));
     }
 
